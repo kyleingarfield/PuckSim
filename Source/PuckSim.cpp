@@ -9,9 +9,16 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
+#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/ObjectLayerPairFilterTable.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayerInterfaceTable.h>
 #include <Jolt/Physics/Collision/BroadPhase/ObjectVsBroadPhaseLayerFilterTable.h>
+#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
+#include <Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.h>
+#include <Jolt/Physics/Collision/RayCast.h>
+#include <Jolt/Physics/Collision/CastResult.h>
+
 #include <iostream>
 #include <cstdarg>
 #include <thread>
@@ -135,6 +142,16 @@ public:
 
 	virtual void OnBodyDeactivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
+	}
+};
+
+
+class IceLayerFilter : public ObjectLayerFilter
+{
+public:
+	bool ShouldCollide(ObjectLayer inLayer) const override
+	{
+		return inLayer == Layers::ICE;
 	}
 };
 
@@ -404,6 +421,35 @@ int main(int argc, char** argv)
 	puck_trigger_settings.mIsSensor = true;
 	BodyID puck_trigger_id = body_interface.CreateAndAddBody(puck_trigger_settings, EActivation::Activate);
 
+	// PLAYER
+	CapsuleShape* capsule = new CapsuleShape(0.45f, 0.3f);
+	OffsetCenterOfMassShapeSettings com_offset(Vec3(0, 1.25f, 0), capsule);
+	ShapeSettings::ShapeResult player_shape_result = com_offset.Create();
+	ShapeRefC player_shape = player_shape_result.Get();
+
+	BodyCreationSettings player_settings(player_shape, RVec3(0.0_r, 2.0_r, 0.0_r), Quat::sIdentity(), EMotionType::Dynamic, Layers::PLAYER);
+	player_settings.mGravityFactor = 2.0f;
+	player_settings.mFriction = 0.0f;
+	player_settings.mRestitution = 0.2f;
+	player_settings.mLinearDamping = 0.0f;
+	player_settings.mAngularDamping = 0.0f;
+	player_settings.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
+	player_settings.mMassPropertiesOverride.mMass = 90.0f;
+	player_settings.mAllowSleeping = false;
+
+	BodyID player_id = body_interface.CreateAndAddBody(player_settings, EActivation::Activate);
+
+
+
+
+
+
+
+
+
+
+
+
 	// Now you can interact with the dynamic body, in this case we're going to give it a velocity.
 	// (note that if we had used CreateBody then we could have set the velocity straight on the body before adding it to the physics system)
 	body_interface.SetLinearVelocity(puck_id, Vec3(0.0f, 0.0f, 15.0f));
@@ -416,19 +462,17 @@ int main(int argc, char** argv)
 	// Instead insert all new objects in batches instead of 1 at a time to keep the broad phase efficient.
 	physics_system.OptimizeBroadPhase();
 
+
+	float prevDistance = 0.0f;
+	IceLayerFilter ice_filter;
+
 	// Now we're ready to simulate the body, keep simulating until it goes to sleep
 	uint step = 0;
-	while (body_interface.IsActive(puck_id))
+	while (step < 500)
 	{
 		// Next step
 		++step;
 
-		// Output current position and velocity of the sphere
-		if (step % 50 == 0) {
-			RVec3 position = body_interface.GetCenterOfMassPosition(puck_id);
-			Vec3 velocity = body_interface.GetLinearVelocity(puck_id);
-			cout << "Step " << step << ": Position = (" << position.GetX() << ", " << position.GetY() << ", " << position.GetZ() << "), Velocity = (" << velocity.GetX() << ", " << velocity.GetY() << ", " << velocity.GetZ() << ")" << endl;
-		}
 
 		// If you take larger steps than 1 / 60th of a second you need to do multiple collision steps in order to keep the simulation stable. Do 1 collision step per 1 / 60th of a second (round up).
 		const int cCollisionSteps = 1;
@@ -437,6 +481,44 @@ int main(int argc, char** argv)
 		// Sync Puck Trigger -> Puck pos
 		body_interface.SetPosition(puck_trigger_id, body_interface.GetPosition(puck_id), EActivation::DontActivate);
 
+		// Raycast down to find dist to ice
+		RVec3 origin = body_interface.GetPosition(player_id) + Vec3(0, 1.0f, 0);
+		RRayCast ray = RRayCast(origin, Vec3(0, -5.0f, 0));
+
+		float currentDistance = 1.45f;
+		bool grounded = false;
+
+		RayCastResult hit;
+
+		if (physics_system.GetNarrowPhaseQuery().CastRay(ray, hit, {}, ice_filter))
+		{
+			currentDistance = hit.mFraction * 5.0f;
+			grounded = true;
+		}
+
+		float error = 1.2f - currentDistance;
+		float valueDerivative = (currentDistance - prevDistance) / cDeltaTime;
+		float P_term = 100.0f * error;
+		float D_term = 15.0f * (-valueDerivative);
+		float output = P_term + D_term;
+
+		float force = output < 0.0f ? 0.0f : (output > 40.0f ? 40.0f : output);
+		body_interface.AddForce(player_id, Vec3(0, force * 90.0f, 0));
+
+		if (step % 50 == 0) {
+			RVec3 puck_pos = body_interface.GetCenterOfMassPosition(puck_id);
+			Vec3 puck_vel = body_interface.GetLinearVelocity(puck_id);
+
+			cout << "Step " << step << ": Puck Position = (" << puck_pos.GetX() << ", " << puck_pos.GetY() << ", " << puck_pos.GetZ() << "), Puck Velocity = (" << puck_vel.GetX() << ", " << puck_vel.GetY() << ", " << puck_vel.GetZ() << ")" << endl;
+
+			RVec3 player_pos = body_interface.GetPosition(player_id);
+			Vec3 player_vel = body_interface.GetLinearVelocity(player_id);
+
+			cout << "Step " << step << ": Player Position = (" << player_pos.GetX() << ", " << player_pos.GetY() << ", " << player_pos.GetZ() << "), Player Velocity = (" << player_vel.GetX() << ", " << player_vel.GetY() << ", " << player_vel.GetZ() << ")" << endl;
+		}
+
+		prevDistance = currentDistance;
+			
 		// Step the world
 		physics_system.Update(cDeltaTime, cCollisionSteps, &temp_allocator, &job_system);
 	}
@@ -453,6 +535,9 @@ int main(int argc, char** argv)
 
 	body_interface.RemoveBody(red_goal_trigger_id);
 	body_interface.DestroyBody(red_goal_trigger_id);
+	
+	body_interface.RemoveBody(player_id);
+	body_interface.DestroyBody(player_id);
 
 	// Remove and destroy the floor
 	body_interface.RemoveBody(ice->GetID());
