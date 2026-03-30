@@ -176,7 +176,20 @@ set(CMAKE_EXE_LINKER_FLAGS_DISTRIBUTION "${CMAKE_EXE_LINKER_FLAGS_RELEASE}")
 SET_INTERPROCEDURAL_OPTIMIZATION()
 
 # Compile PuckSim
-add_executable(PuckSim Source/PuckSim.cpp)
+add_executable(PuckSim
+    Source/PuckSim.cpp
+    Source/Layers.h
+    Source/Layers.cpp
+    Source/Listeners.h
+    Source/JoltSetup.h
+    Source/JoltSetup.cpp
+    Source/Rink.h
+    Source/Rink.cpp
+    Source/Puck.h
+    Source/Puck.cpp
+    Source/Player.h
+    Source/Player.cpp
+)
 target_include_directories(PuckSim PUBLIC extern/JoltPhysics)
 target_link_libraries(PuckSim Jolt)
 

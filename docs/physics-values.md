@@ -239,58 +239,64 @@ Additional box colliders on the Rink, with 90-degree X and Z rotations applied. 
 | Shoulder | SphereCollider | Player Body | Radius: 0.4, Center: (0, 1.5, 0) |
 | Head | SphereCollider | Player Body | Radius: 0.225, Center: (0, 0.225, 0) |
 
-### Movement (Attacker)
+### Movement (Both Roles — shared values)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Forward Acceleration | 2 | Prefab |
 | Forward Sprint Acceleration | 4.75 | Prefab |
 | Forward Sprint Overspeed Acceleration | 1 | Prefab |
-| Max Forward Speed | 7.5 | Prefab |
-| Max Forward Sprint Speed | 8.75 | Prefab |
 | Backward Acceleration | 1.8 | Prefab |
 | Backward Sprint Acceleration | 2 | Prefab |
 | Backward Sprint Overspeed Acceleration | 1 | Prefab |
-| Max Backward Speed | 7.25 | Prefab |
-| Max Backward Sprint Speed | 7.25 | Prefab |
 | Brake Acceleration | 5 | Prefab |
-| Drag | 0.025 | Prefab |
-| Overspeed Drag | 0.025 | Prefab |
-| Turn Acceleration | 1.625 | Prefab |
-| Turn Brake Acceleration | 3.25 | Prefab |
-| Max Turn Speed | 1.375 | Prefab |
+| Drag | 0.015 | Prefab (overrides .cs default of 0.025) |
+| Overspeed Drag | 0.25 | Prefab (overrides .cs default of 0.025) |
+| Turn Acceleration | 1.5 | Prefab (overrides .cs default of 1.625) |
+| Turn Brake Acceleration | 4.5 | Prefab (overrides .cs default of 3.25) |
+| Max Turn Speed | 1.3125 | Prefab (overrides .cs default of 1.375) |
 | Turn Drag | 3 | Prefab |
 | Turn Overspeed Drag | 2.25 | Prefab |
 
-### Gravity & Hover (Attacker)
+### Movement (Speed Caps — differ by role)
+
+| Parameter | Attacker | Goalie | Source |
+|-----------|----------|--------|--------|
+| Max Forward Speed | 7.5 | 5 | Prefab |
+| Max Forward Sprint Speed | 8.75 | 6.25 | Prefab |
+| Max Backward Speed | 7.5 | 5 | Prefab (overrides .cs default of 7.25) |
+| Max Backward Sprint Speed | 8.5 | 6 | Prefab (overrides .cs default of 7.25) |
+
+### Gravity & Hover (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Gravity Multiplier | 2 | Prefab |
 | Hover Distance | 1.2 | Prefab |
-| Slide Hover Distance | 0.8 | Prefab |
+| Slide Hover Distance | 0.9 | Prefab (overrides .cs default of 0.8) |
 | Upwardness Threshold | 0.8 | Prefab |
 | Sideways Threshold | 0.2 | Prefab |
 
-### Hover PID (Attacker)
+### Hover PID (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Proportional Gain | 100 | Prefab |
 | Integral Gain | 0 | Prefab |
-| Derivative Gain | 15 | Prefab |
-| Target Distance | 1 | Hover.cs |
+| Derivative Gain | 8 | Prefab (overrides .cs default of 15) |
+| Target Distance | 1.2 | Prefab (overrides .cs default of 1.0) |
 | Raycast Offset | (0, 1, 0) | Prefab |
-| Raycast Distance | 1.45 | Prefab |
+| Raycast Distance | 1.3 | Prefab (overrides .cs default of 1.45) |
+| Raycast Layer Mask | 8192 (Ice layer only) | Prefab |
 | Max Force | 40 | Prefab |
 
-### Keep Upright PID (Attacker)
+### Keep Upright PID (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Proportional Gain | 50 | Prefab |
 | Integral Gain | 0 | Prefab |
-| Derivative Gain | 5 | Prefab |
+| Derivative Gain | 8 | Prefab (overrides .cs default of 5) |
 
 ### Balance & Fall
 
@@ -299,7 +305,7 @@ Additional box colliders on the Rink, with 90-degree X and Z rotations applied. 
 | Balance Loss Time | 0.25s | Prefab |
 | Balance Recovery Time | 5s | Prefab |
 
-### Stamina (Attacker)
+### Stamina (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
@@ -307,43 +313,54 @@ Additional box colliders on the Rink, with 90-degree X and Z rotations applied. 
 | Sprint Drain Rate | 1.4s | Prefab |
 | Jump Stamina Drain | 0.125 | Prefab |
 | Twist Stamina Drain | 0.125 | Prefab |
-| Dash Stamina Drain | 0.125 | Prefab |
+| Dash Stamina Drain | 0.25 | Prefab (overrides .cs default of 0.125) |
 
-### Jump (Attacker)
+### Jump (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Jump Velocity | 6 (VelocityChange) | Prefab |
-| Jump Turn Multiplier | 5 | Prefab |
+| Jump Turn Multiplier | 3.5 | Prefab (overrides .cs default of 5) |
 
-### Twist (In-Air)
+### Twist (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Twist Velocity | 5 (VelocityChange) | Prefab |
 
-### Dash (Attacker)
+### Dash & Slide (Both Roles — shared values)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Dash Velocity | 6 (VelocityChange) | Prefab |
 | Dash Drag | 5 | Prefab |
-| Dash Drag Time | 1s | Prefab |
-| Slide Drag | 0.2 | Prefab |
+| Dash Drag Time | 1.5s | Prefab (overrides .cs default of 1) |
 | Stop Drag | 2.5 | Prefab |
 | Fallen Drag | 0.2 | Prefab |
 | Slide Turn Multiplier | 2 | Prefab |
 
-### Tackle (Attacker)
+### Dash & Slide (Values that differ by role)
+
+| Parameter | Attacker | Goalie | Source |
+|-----------|----------|--------|--------|
+| Can Dash | false | true | Prefab (overrides .cs default of true) |
+| Slide Drag | 0.1 | 1 | Prefab (overrides .cs default of 0.2) |
+
+### Tackle (Shared values)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Tackle Speed Threshold | 7.6 | Prefab |
-| Tackle Force Threshold | 7 | Prefab |
 | Tackle Force Multiplier | 0.3 | Prefab |
 | Tackle Bounce Max Magnitude | 10 | Prefab |
 
-### Lateral Movement
+### Tackle (Values that differ by role)
+
+| Parameter | Attacker | Goalie | Source |
+|-----------|----------|--------|--------|
+| Tackle Speed Threshold | 7.6 | 5.1 | Prefab |
+| Tackle Force Threshold | 7 | 5 | Prefab |
+
+### Lateral Movement (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
@@ -356,44 +373,25 @@ Additional box colliders on the Rink, with 90-degree X and Z rotations applied. 
 
 Rigidbody and colliders are identical to Attacker (except Goalie has no Head SphereCollider listed).
 
-### Movement (Goalie — values that differ)
+All physics systems (Movement shared params, Hover PID, KeepUpright PID, Skate, VelocityLean,
+Stamina, Jump, Twist, Dash shared params, Laterality) are **identical** between both prefabs.
 
-| Parameter | Goalie | Attacker |
-|-----------|--------|----------|
-| Max Forward Speed | 5 | 7.5 |
-| Max Forward Sprint Speed | 6.25 | 8.75 |
-| Max Backward Speed | 5 | 7.25 |
-| Max Backward Sprint Speed | 6 | 7.25 |
-| Drag | 0.015 | 0.025 |
-| Overspeed Drag | 0.25 | 0.025 |
-| Turn Acceleration | 1.5 | 1.625 |
-| Turn Brake Acceleration | 4.5 | 3.25 |
-| Max Turn Speed | 1.3125 | 1.375 |
+### Complete list of Attacker vs Goalie differences (only 8 values)
 
-### Body (Goalie — values that differ)
+| Parameter | Attacker | Goalie | Component |
+|-----------|----------|--------|-----------|
+| Max Forward Speed | 7.5 | 5 | Movement |
+| Max Forward Sprint Speed | 8.75 | 6.25 | Movement |
+| Max Backward Speed | 7.5 | 5 | Movement |
+| Max Backward Sprint Speed | 8.5 | 6 | Movement |
+| Can Dash | false | true | PlayerBodyV2 |
+| Slide Drag | 0.1 | 1 | PlayerBodyV2 |
+| Tackle Speed Threshold | 7.6 | 5.1 | PlayerBodyV2 |
+| Tackle Force Threshold | 7 | 5 | PlayerBodyV2 |
 
-| Parameter | Goalie | Attacker |
-|-----------|--------|----------|
-| Slide Hover Distance | 0.9 | 0.8 |
-| Jump Turn Multiplier | 3.5 | 5 |
-| Dash Stamina Drain | 0.25 | 0.125 |
-| Dash Drag Time | 1.5 | 1 |
-| Slide Drag | 1 | 0.2 |
-| Tackle Speed Threshold | 5.1 | 7.6 |
-| Tackle Force Threshold | 5 | 7 |
-
-### Hover PID (Goalie — values that differ)
-
-| Parameter | Goalie | Attacker |
-|-----------|--------|----------|
-| Raycast Distance | 1.3 | 1.45 |
-| Derivative Gain | 8 | 15 |
-
-### Keep Upright PID (Goalie — values that differ)
-
-| Parameter | Goalie | Attacker |
-|-----------|--------|----------|
-| Derivative Gain | 8 | 5 |
+**Note:** Many values previously listed as "goalie differences" were actually comparing goalie prefab
+values against .cs source defaults. Both prefabs override the same .cs defaults identically.
+The corrected shared values are documented in the Attacker sections above.
 
 ## Stick (Attacker & Goalie — identical)
 
@@ -466,18 +464,18 @@ Rigidbody and colliders are identical to Attacker (except Goalie has no Head Sph
 | Output Min | -15 | StickPositioner.cs |
 | Output Max | 15 | StickPositioner.cs |
 
-## Skate
+## Skate (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Traction Coefficient | 0.15 | Skate.cs |
+| Traction | 12.5 | Prefab (overrides .cs default of 0.15) |
 
-## Velocity Lean
+## Velocity Lean (Both Roles — identical)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Linear Force Multiplier | 1 | VelocityLean.cs |
-| Angular Force Multiplier | 6 | VelocityLean.cs |
+| Linear Force Multiplier | 0.75 | Prefab (overrides .cs default of 1) |
+| Angular Force Multiplier | 6 | Prefab |
 
 ## Goal Net Collider
 

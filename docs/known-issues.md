@@ -1,12 +1,14 @@
 # Known Issues and TODO
 
-## Phase 4: Hover PID Calibration
+## Phase 4: Hover PID
 
-- **Raycast distance is 5.0 instead of game's 1.45.** The game's raycast distance of 1.45 combined with the raycast offset of (0, 1, 0) is too short to reach the ice from the player's starting position or natural hover height in our setup. Temporarily increased to 5.0 to get the PID working. Needs investigation into why the game's value works in Unity but not here — likely related to differences in how the capsule is positioned relative to the ice.
+- **RESOLVED: Capsule geometry offset.** The Unity capsule collider has Center: (0, 1.25, 0), meaning the geometry is shifted above the transform position. Fixed by using `RotatedTranslatedShape` instead of `OffsetCenterOfMassShape`. This also corrected the COM position since it naturally follows the geometry.
 
-- **Hover target distance may need recalibration.** Currently 1.2 (hoverDistance * balance from game). The PID equilibrium puts the player body origin at ~Y=0.029 without ice collision, which means the capsule clips through the ice. With PLAYER vs ICE collision enabled, the capsule rests on ice at Y=0.755 and the PID never fires (raycast distance > target, so force clamps to 0). The hover will engage during dynamic situations (bouncing, movement) but doesn't hold the player up on its own at the correct height.
+- **RESOLVED: Raycast distance and target.** Now using the game's exact values: raycast distance 1.45, target distance 1.0, raycast offset (0, 1, 0). Spawn position lowered to Y=0.5 so the ray can reach the ice during initial fall (the game likely spawns players at hover height, not above it).
 
-- **PLAYER vs ICE collision is acting as the primary floor.** The hover PID should be the main thing keeping the player above ice, with collision as a safety net. Currently it's reversed. This may require adjusting the target distance, raycast offset, or understanding how Unity positions the capsule pivot differently.
+- **Steady-state hover offset.** The PD controller (no integral term) has a steady-state error of gravity/P_gain = 19.62/100 = 0.1962. This means the hover distance is always ~0.2 less than the target. Body origin settles at Y=-0.17 with capsule bottom at Y=0.33. This is inherent to the PD design and identical in the game.
+
+- **PLAYER vs ICE collision.** Currently enabled as safety net. At hover equilibrium the capsule bottom (Y=0.33) is well above ice (Y=0.025), so the collision doesn't interfere with hovering. It only activates if the player falls below hover height.
 
 - **Movement and drag not yet integrated.** Movement mechanics were tested and verified (acceleration to 7.5 max speed, manual drag at 0.025) but the test code was removed. Will be re-added with proper input handling in a later phase.
 

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(grep:*)",
+      "Bash(ls \"C:\\\\Users\\\\kyle\\\\Developer\\\\PuckMods\\\\Puck\"/*.cs)",
+      "Bash(find /c/Users/kyle/Developer/PuckMods -name *.cs -type f -exec grep -l CSGameMode {})",
+      "Bash(2)",
+      "Bash(find /c/Users/kyle/Developer/PuckMods -name *.cs -type f -exec grep -l UseSourceEngineMovement {})",
+      "Bash(find /c/Users/kyle/Developer/PuckMods/de_dust_2 -name *.cs -type f -exec grep -l \"SourceEngineMovement\\\\|UseSourceEngineMovement\" {})",
+      "Bash(find C:UserskyleDownloadsAssetRipper_win_x64PuckDumpedAssetsAssetRipper_export_20260330_001745ExportedProjectAssetsAnimationClip -iname *player*)",
+      "Bash(find /c/Users/kyle/Developer/PuckMods -name *Goalie* -o -name *attacker*)"
+    ]
+  }
+}
