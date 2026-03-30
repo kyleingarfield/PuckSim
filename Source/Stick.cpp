@@ -162,11 +162,14 @@ void UpdateStick(BodyInterface& bi, Stick& stick, Vec3 shaftTarget, Vec3 bladeTa
 	bi.SetRotation(stick.bodyId, fixedRot, EActivation::DontActivate);
 
 	// Transfer stick angular velocity back to player body
+	// Unity: AddTorque(-scaledAngVel, ForceMode.Acceleration) = angular acceleration applied over dt
+	// Direct velocity change: deltaAngVel = acceleration * dt
 	if (stick.params->transferAngularVelocity)
 	{
 		Vec3 scaledAngVel = stickAngVel * Vec3(0.5f, 1.0f, 0.0f) *
 			stick.params->angularVelTransferMult;
-		bi.AddTorque(playerBodyId, -scaledAngVel);
+		Vec3 curPlayerAngVel = bi.GetAngularVelocity(playerBodyId);
+		bi.SetAngularVelocity(playerBodyId, curPlayerAngVel - scaledAngVel * dt);
 	}
 
 	stick.bladeGainMultiplier = 1.0f;

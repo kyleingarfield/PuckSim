@@ -65,6 +65,12 @@ int main(int argc, char** argv)
 	Player goalie = CreatePlayer(body_interface, GOALIE_PARAMS, RVec3(-5.0_r, 0.5_r, 0.0_r));
 	Stick attackerStick = CreateStick(body_interface, ATTACKER_STICK_PARAMS, RVec3(5.0_r, 1.5_r, 0.0_r));
 	Stick goalieStick = CreateStick(body_interface, GOALIE_STICK_PARAMS, RVec3(-5.0_r, 1.5_r, 0.0_r));
+
+
+	contact_listener.puckBodyId = puck.puckId;
+	contact_listener.attackerStickId = attackerStick.bodyId;
+	contact_listener.goalieStickId = goalieStick.bodyId;
+
 	physics_system.OptimizeBroadPhase();
 
 	const float cDeltaTime = 1.0f / 50.0f;
@@ -79,6 +85,7 @@ int main(int argc, char** argv)
 		++step;
 
 		SyncPuckTrigger(body_interface, puck);
+		puck.isTouchingStick = false;
 
 		UpdatePlayerHover(body_interface, physics_system, attacker, cDeltaTime);
 		UpdatePlayerHover(body_interface, physics_system, goalie, cDeltaTime);
@@ -124,6 +131,20 @@ int main(int argc, char** argv)
 			body_interface.SetAngularVelocity(id, angVel);
 		}
 		contact_listener.netDampingQueue.clear();
+
+		// Puck stick-exit: Y-axis correction + speed clamps
+		for (BodyID id : contact_listener.stickExitQueue) {
+			UpdatePuckPostStickExit(body_interface, puck, cDeltaTime);
+		}
+		contact_listener.stickExitQueue.clear();
+
+		// Puck-stick contact tracking for inertia tensor switching
+		puck.isTouchingStick = !contact_listener.puckStickContactQueue.empty();
+		contact_listener.puckStickContactQueue.clear();
+		UpdatePuckTensor(physics_system, puck);
+
+		// Puck ground check
+		UpdatePuckGroundCheck(body_interface, physics_system, puck);
 	}
 
 	DestroyRink(body_interface, rink);
