@@ -9,7 +9,15 @@
       "Bash(find /c/Users/kyle/Developer/PuckMods -name *.cs -type f -exec grep -l UseSourceEngineMovement {})",
       "Bash(find /c/Users/kyle/Developer/PuckMods/de_dust_2 -name *.cs -type f -exec grep -l \"SourceEngineMovement\\\\|UseSourceEngineMovement\" {})",
       "Bash(find C:UserskyleDownloadsAssetRipper_win_x64PuckDumpedAssetsAssetRipper_export_20260330_001745ExportedProjectAssetsAnimationClip -iname *player*)",
-      "Bash(find /c/Users/kyle/Developer/PuckMods -name *Goalie* -o -name *attacker*)"
+      "Bash(find /c/Users/kyle/Developer/PuckMods -name *Goalie* -o -name *attacker*)",
+      "Bash(find /c/Users/kyle/Developer/PuckSim/Source -type f \\\\\\(-name *.cpp -o -name *.h \\\\\\))",
+      "Bash(find C:UserskyleDownloadsAssetRipper_win_x64PuckDumpedAssetsAssetRipper_export_20260330_001745 -type f -name *rink* -o -name *board* -o -name *barrier* -o -name *arena* -o -name *ice*)",
+      "Bash(find /c/Users/kyle/Developer/PuckMods/Puck -type f -iname *goal* -o -iname *net*)",
+      "Bash(find C:UserskyleDeveloperPuckMods -type f \\\\\\(-name *.md -o -name *.txt -o -name *.doc \\\\\\))",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/kyle/Downloads/AssetRipper_win_x64/PuckDumpedAssets/AssetRipper_export_20260330_001745/ExportedProject/Assets/**)",
+      "Bash(done)"
     ]
   }
 }

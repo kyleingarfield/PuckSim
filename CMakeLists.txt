@@ -189,6 +189,9 @@ add_executable(PuckSim
     Source/Puck.cpp
     Source/Player.h
     Source/Player.cpp
+    Source/Stick.h
+    Source/Stick.cpp
+    Source/MeshData.h
 )
 target_include_directories(PuckSim PUBLIC extern/JoltPhysics)
 target_link_libraries(PuckSim Jolt)

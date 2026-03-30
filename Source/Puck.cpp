@@ -1,6 +1,8 @@
 #include "Puck.h"
 #include "Layers.h"
+#include "MeshData.h"
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/ConvexHullShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
 
@@ -9,7 +11,15 @@ JPH_SUPPRESS_WARNINGS
 Puck CreatePuck(BodyInterface& bi, RVec3 startPos)
 {
 	// PUCK
-	BodyCreationSettings puck_settings(new SphereShape(0.152f), startPos, Quat::sIdentity(), EMotionType::Dynamic, Layers::PUCK);
+	Array<Vec3> puck_points;
+	puck_points.reserve(PUCK_LEVEL_COLLIDER_NUM_VERTICES);
+	for (int i = 0; i < PUCK_LEVEL_COLLIDER_NUM_VERTICES; i++)
+		puck_points.push_back(Vec3(PUCK_LEVEL_COLLIDER_VERTICES[i].x, PUCK_LEVEL_COLLIDER_VERTICES[i].y, PUCK_LEVEL_COLLIDER_VERTICES[i].z));
+	ConvexHullShapeSettings puck_hull(puck_points);
+	ShapeSettings::ShapeResult puck_shape_result = puck_hull.Create();
+	ShapeRefC puck_shape = puck_shape_result.Get();
+
+	BodyCreationSettings puck_settings(puck_shape, startPos, Quat::sIdentity(), EMotionType::Dynamic, Layers::PUCK);
 	puck_settings.mFriction = 0.0f;
 	puck_settings.mRestitution = 0.0f;
 	puck_settings.mLinearDamping = 0.3f;
@@ -17,6 +27,7 @@ Puck CreatePuck(BodyInterface& bi, RVec3 startPos)
 	puck_settings.mMaxLinearVelocity = 30.f;
 	puck_settings.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
 	puck_settings.mMassPropertiesOverride.mMass = 0.375f;
+	//puck_settings.mMotionQuality = EMotionQuality::LinearCast;
 	BodyID puck_id = bi.CreateAndAddBody(puck_settings, EActivation::Activate);
 
 	// PUCK TRIGGER

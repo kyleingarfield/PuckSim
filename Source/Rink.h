@@ -12,10 +12,7 @@ using namespace JPH;
 
 struct Rink {
 	BodyID iceId;
-	BodyID leftWallId;
-	BodyID rightWallId;
-	BodyID farWallId;
-	BodyID nearWallId;
+	BodyID boardsId;
 	BodyID blueGoalTriggerId;
 	BodyID redGoalTriggerId;
 };

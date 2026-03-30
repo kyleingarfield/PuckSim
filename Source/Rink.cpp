@@ -1,7 +1,9 @@
 #include "Rink.h"
 #include "Layers.h"
+#include "MeshData.h"
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
 JPH_SUPPRESS_WARNINGS
@@ -12,7 +14,7 @@ using namespace JPH::literals;
 Rink CreateRink(BodyInterface& bi)
 {
 	// ICE
-	BoxShapeSettings ice_shape_settings(Vec3(15.0f, 0.0125f, 39.0f));
+	BoxShapeSettings ice_shape_settings(Vec3(20.0f, 0.0125f, 39.0f));
 	ice_shape_settings.SetEmbedded(); // A ref counted object on the stack (base class RefTarget) should be marked as such to prevent it from being freed when its reference count goes to 0.
 	ShapeSettings::ShapeResult ice_shape_result = ice_shape_settings.Create();
 	ShapeRefC ice_shape = ice_shape_result.Get();
@@ -21,45 +23,33 @@ Rink CreateRink(BodyInterface& bi)
 	ice_settings.mRestitution = 0.0f;
 	BodyID iceId = bi.CreateAndAddBody(ice_settings, EActivation::DontActivate);
 
-	// LEFT WALL
-	BoxShapeSettings left_wall_shape_settings(Vec3(0.4f, 12.5f, 30.5f));
-	left_wall_shape_settings.SetEmbedded();
-	ShapeSettings::ShapeResult left_wall_shape_result = left_wall_shape_settings.Create();
-	ShapeRefC left_wall_shape = left_wall_shape_result.Get();
-	BodyCreationSettings left_wall_settings(left_wall_shape, RVec3(-19.25_r, 12.5_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
-	left_wall_settings.mFriction = 0.0f;
-	left_wall_settings.mRestitution = 0.2f;
-	BodyID leftWallId = bi.CreateAndAddBody(left_wall_settings, EActivation::DontActivate);
+	// Boards
+	VertexList barrier_verts;
+	barrier_verts.reserve(BARRIER_COLLIDER_NUM_VERTICES);
+	for (int i = 0; i < BARRIER_COLLIDER_NUM_VERTICES; i++) {
+		float x = BARRIER_COLLIDER_VERTICES[i].x * 1.25f;
+		float y = -BARRIER_COLLIDER_VERTICES[i].z;
+		float z = BARRIER_COLLIDER_VERTICES[i].y * 1.25f;
+		barrier_verts.push_back(Float3(x, y, z));
+	}
 
-	// RIGHT WALL
-	BoxShapeSettings right_wall_shape_settings(Vec3(0.4f, 12.5f, 30.5f));
-	right_wall_shape_settings.SetEmbedded();
-	ShapeSettings::ShapeResult right_wall_shape_result = right_wall_shape_settings.Create();
-	ShapeRefC right_wall_shape = right_wall_shape_result.Get();
-	BodyCreationSettings right_wall_settings(right_wall_shape, RVec3(19.25_r, 12.5_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
-	right_wall_settings.mFriction = 0.0f;
-	right_wall_settings.mRestitution = 0.2f;
-	BodyID rightWallId = bi.CreateAndAddBody(right_wall_settings, EActivation::DontActivate);
+	IndexedTriangleList barrier_tris;
+	barrier_tris.reserve(BARRIER_COLLIDER_NUM_INDICES / 3);
+	for (int i = 0; i < BARRIER_COLLIDER_NUM_INDICES; i += 3) {
+		barrier_tris.push_back(IndexedTriangle(
+			BARRIER_COLLIDER_INDICES[i],
+			BARRIER_COLLIDER_INDICES[i + 1],
+			BARRIER_COLLIDER_INDICES[i + 2]
+		));
+	}
 
-	// FAR END WALL
-	BoxShapeSettings far_wall_shape_settings(Vec3(19.65f, 12.5f, 2.0f));
-	far_wall_shape_settings.SetEmbedded();
-	ShapeSettings::ShapeResult far_wall_shape_result = far_wall_shape_settings.Create();
-	ShapeRefC far_wall_shape = far_wall_shape_result.Get();
-	BodyCreationSettings far_wall_settings(far_wall_shape, RVec3(0.0_r, 12.5_r, 39.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
-	far_wall_settings.mFriction = 0.0f;
-	far_wall_settings.mRestitution = 0.2f;
-	BodyID farWallId = bi.CreateAndAddBody(far_wall_settings, EActivation::DontActivate);
-
-	// NEAR END WALL
-	BoxShapeSettings near_wall_shape_settings(Vec3(19.65f, 12.5f, 2.0f));
-	near_wall_shape_settings.SetEmbedded();
-	ShapeSettings::ShapeResult near_wall_shape_result = near_wall_shape_settings.Create();
-	ShapeRefC near_wall_shape = near_wall_shape_result.Get();
-	BodyCreationSettings near_wall_settings(near_wall_shape, RVec3(0.0_r, 12.5_r, -39.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
-	near_wall_settings.mFriction = 0.0f;
-	near_wall_settings.mRestitution = 0.2f;
-	BodyID nearWallId = bi.CreateAndAddBody(near_wall_settings, EActivation::DontActivate);
+	MeshShapeSettings barrier_mesh(barrier_verts, barrier_tris);
+	ShapeSettings::ShapeResult barrier_result = barrier_mesh.Create();
+	ShapeRefC barrier_shape = barrier_result.Get();
+	BodyCreationSettings boards_settings(barrier_shape, RVec3::sZero(), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
+	boards_settings.mFriction = 0.0f;
+	boards_settings.mRestitution = 0.2f;
+	BodyID boardsId = bi.CreateAndAddBody(boards_settings, EActivation::DontActivate);
 
 	// BLUE GOAL TRIGGER
 	BoxShapeSettings blue_goal_trigger_shape_settings(Vec3(1.515f, 0.745f, 0.25f));
@@ -80,23 +70,17 @@ Rink CreateRink(BodyInterface& bi)
 	red_goal_trigger_settings.mIsSensor = true;
 	BodyID redGoalTriggerId = bi.CreateAndAddBody(red_goal_trigger_settings, EActivation::DontActivate);
 
-	return { iceId, leftWallId, rightWallId, farWallId, nearWallId, blueGoalTriggerId, redGoalTriggerId }; 
+	return { iceId, boardsId, blueGoalTriggerId, redGoalTriggerId }; 
 }
 void DestroyRink(BodyInterface& bi, Rink& rink)
 {
 	bi.RemoveBody(rink.iceId);
-	bi.RemoveBody(rink.leftWallId);
-	bi.RemoveBody(rink.rightWallId);
-	bi.RemoveBody(rink.farWallId);
-	bi.RemoveBody(rink.nearWallId);
+	bi.RemoveBody(rink.boardsId);
 	bi.RemoveBody(rink.blueGoalTriggerId);
 	bi.RemoveBody(rink.redGoalTriggerId);
 
 	bi.DestroyBody(rink.iceId);
-	bi.DestroyBody(rink.leftWallId);
-	bi.DestroyBody(rink.rightWallId);
-	bi.DestroyBody(rink.farWallId);
-	bi.DestroyBody(rink.nearWallId);
+	bi.DestroyBody(rink.boardsId);
 	bi.DestroyBody(rink.blueGoalTriggerId);
 	bi.DestroyBody(rink.redGoalTriggerId);
 }

@@ -82,9 +82,9 @@ Key observations:
 | Player Body | 0 | 0 | 0.2 | Multiply | Maximum |
 | Player Mesh | 0 | 0 | 0.2 | Multiply | Maximum |
 | Puck | 0 | 0 | 0 | Multiply | Maximum |
-| Stick | 0 | 0 | 0 | Multiply | Average |
+| Stick | 0 | 0 | 0 | Multiply | Multiply |
 | Stick Blade | 0.3 | 0.3 | 0 | Maximum | Maximum |
-| Stick Shaft | 0 | 0 | 0 | Multiply | Average |
+| Stick Shaft | 0 | 0 | 0 | Multiply | Multiply |
 
 ## Rink Dimensions
 
@@ -447,22 +447,49 @@ The corrected shared values are documented in the Attacker sections above.
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Maximum Reach | 2.5 | StickPositioner.cs |
-| Raycast Origin Padding | 0.2 | StickPositioner.cs |
-| Blade Target Rotation Threshold | 25 | StickPositioner.cs |
-| Blade Target Max Angle | 45 | StickPositioner.cs |
-| Soft Collision Force | 1 | StickPositioner.cs |
+| Maximum Reach | 2.5 | Stick Positioner.prefab |
+| Raycast Origin Padding | 0.2 | Stick Positioner.prefab |
+| Blade Target Rotation Threshold | 25 | Stick Positioner.prefab |
+| Blade Target Max Angle | 45 | Stick Positioner.prefab |
+| Soft Collision Force | 20 | Stick Positioner.prefab (overrides .cs default of 1) |
+| Raycast Layer Mask | 30720 (Goal Post + Boards + Ice + Goal Net) | Stick Positioner.prefab |
 
-### Stick Position PID
+### Stick Positioner Child Transforms (from prefab — authoritative)
+
+| Child Object | Local Position | Local Rotation | Notes |
+|--------------|---------------|----------------|-------|
+| Raycast Origin | (-0.5, 1.5, 0.3) | 45° around X | Starting raycast point |
+| Blade Target Focus Point | (-0.5, 1.5, 0.3) | Identity | Focus point for blade aim |
+| Blade Target | (0, 0, 2) | Identity | Where blade PID drives toward |
+| Shaft Target | (0, 0, 0) relative to Blade Target | Identity | Where shaft PID drives toward |
+
+### Stick Position PID (from prefab — authoritative)
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Proportional Gain | 0.75 | StickPositioner.cs |
-| Integral Gain | 5 | StickPositioner.cs |
-| Integral Saturation | 5 | StickPositioner.cs |
-| Derivative Gain | 0 | StickPositioner.cs |
-| Output Min | -15 | StickPositioner.cs |
-| Output Max | 15 | StickPositioner.cs |
+| Proportional Gain | 75 | Stick Positioner.prefab (overrides .cs default of 0.75) |
+| Integral Gain | 500 | Stick Positioner.prefab (overrides .cs default of 5) |
+| Integral Saturation | 100 | Stick Positioner.prefab (overrides .cs default of 5) |
+| Derivative Gain | 0 | Stick Positioner.prefab |
+| Derivative Smoothing | 0 | Stick Positioner.prefab |
+| Output Min | -750 | Stick Positioner.prefab (overrides .cs default of -15) |
+| Output Max | 750 | Stick Positioner.prefab (overrides .cs default of 15) |
+
+### Stick Handle Positions (from prefab — authoritative)
+
+| Handle | Position | Source |
+|--------|----------|--------|
+| Shaft Handle (both roles) | (0, -0.006, -0.992) | Stick.prefab |
+| Blade Handle (Attacker) | (0, 0.118, 1.328) | Stick (Attacker).prefab |
+| Blade Handle (Goalie) | (0, 0.0902, 1.3366) | Stick (Goalie).prefab |
+
+### Stick Physics Materials (from prefab — authoritative)
+
+| Material | Dynamic Friction | Static Friction | Bounciness | Friction Combine | Bounce Combine |
+|----------|-----------------|-----------------|------------|-----------------|----------------|
+| Stick (generic) | 0 | 0 | 0 | Multiply | Multiply |
+| Stick Shaft | 0 | 0 | 0 | Multiply | Multiply |
+| Stick Blade | 0.3 | 0.3 | 0 | Maximum | Maximum |
 
 ## Skate (Both Roles — identical)
 
