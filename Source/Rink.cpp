@@ -51,36 +51,14 @@ Rink CreateRink(BodyInterface& bi)
 	boards_settings.mRestitution = 0.2f;
 	BodyID boardsId = bi.CreateAndAddBody(boards_settings, EActivation::DontActivate);
 
-	// BLUE GOAL TRIGGER
-	BoxShapeSettings blue_goal_trigger_shape_settings(Vec3(1.515f, 0.745f, 0.25f));
-	blue_goal_trigger_shape_settings.SetEmbedded();
-	ShapeSettings::ShapeResult blue_goal_trigger_shape_result = blue_goal_trigger_shape_settings.Create();
-	ShapeRefC blue_goal_trigger_shape = blue_goal_trigger_shape_result.Get();
-	BodyCreationSettings blue_goal_trigger_settings(blue_goal_trigger_shape, RVec3(0.0_r, 0.745_r, 34.0_r), Quat::sIdentity(), EMotionType::Static, Layers::GOAL_TRIGGER);
-	blue_goal_trigger_settings.mIsSensor = true;
-	BodyID blueGoalTriggerId = bi.CreateAndAddBody(blue_goal_trigger_settings, EActivation::DontActivate);
-
-
-	// RED GOAL TRIGGER
-	BoxShapeSettings red_goal_trigger_shape_settings(Vec3(1.515f, 0.745f, 0.25f));
-	red_goal_trigger_shape_settings.SetEmbedded();
-	ShapeSettings::ShapeResult red_goal_trigger_shape_result = red_goal_trigger_shape_settings.Create();
-	ShapeRefC red_goal_trigger_shape = red_goal_trigger_shape_result.Get();
-	BodyCreationSettings red_goal_trigger_settings(red_goal_trigger_shape, RVec3(0.0_r, 0.745_r, -34.0_r), Quat::sIdentity(), EMotionType::Static, Layers::GOAL_TRIGGER);
-	red_goal_trigger_settings.mIsSensor = true;
-	BodyID redGoalTriggerId = bi.CreateAndAddBody(red_goal_trigger_settings, EActivation::DontActivate);
-
-	return { iceId, boardsId, blueGoalTriggerId, redGoalTriggerId }; 
+	return { iceId, boardsId };
 }
+
 void DestroyRink(BodyInterface& bi, Rink& rink)
 {
 	bi.RemoveBody(rink.iceId);
 	bi.RemoveBody(rink.boardsId);
-	bi.RemoveBody(rink.blueGoalTriggerId);
-	bi.RemoveBody(rink.redGoalTriggerId);
 
 	bi.DestroyBody(rink.iceId);
 	bi.DestroyBody(rink.boardsId);
-	bi.DestroyBody(rink.blueGoalTriggerId);
-	bi.DestroyBody(rink.redGoalTriggerId);
 }

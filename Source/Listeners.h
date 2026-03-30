@@ -12,11 +12,12 @@ using namespace std;
 class MyContactListener : public ContactListener
 {
 public:
-	// See: ContactListener
-	virtual ValidateResult	OnContactValidate(const Body& inBody1, const Body& inBody2, RVec3Arg inBaseOffset, const CollideShapeResult& inCollisionResult) override
-	{
+	// Puck body IDs that need net damping applied after physics step.
+	// OnContactAdded cannot modify velocities (bodies are locked), so we queue them.
+	Array<BodyID> netDampingQueue;
 
-		// Allows you to ignore a contact before it is created (using layers to not make objects collide is cheaper!)
+	virtual ValidateResult OnContactValidate(const Body& inBody1, const Body& inBody2, RVec3Arg inBaseOffset, const CollideShapeResult& inCollisionResult) override
+	{
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
 	}
 
@@ -25,17 +26,25 @@ public:
 		ObjectLayer layer1 = inBody1.GetObjectLayer();
 		ObjectLayer layer2 = inBody2.GetObjectLayer();
 
+		// Goal scoring detection
 		if ((layer1 == Layers::GOAL_TRIGGER && layer2 == Layers::PUCK_TRIGGER) ||
 			(layer1 == Layers::PUCK_TRIGGER && layer2 == Layers::GOAL_TRIGGER))
 		{
-			// Determine which goal by checking Z position of the goal trigger body
 			const Body& goal_body = (layer1 == Layers::GOAL_TRIGGER) ? inBody1 : inBody2;
 			float goal_z = goal_body.GetPosition().GetZ();
 
 			if (goal_z > 0)
-				cout << "GOAL SCORED — Blue goal (far, +Z)" << endl;
+				cout << "GOAL SCORED - Blue goal (far, +Z)" << endl;
 			else
-				cout << "GOAL SCORED — Red goal (near, -Z)" << endl;
+				cout << "GOAL SCORED - Red goal (near, -Z)" << endl;
+		}
+
+		// Net damping: queue puck for velocity reduction after physics step
+		if ((layer1 == Layers::GOAL_NET && layer2 == Layers::PUCK) ||
+			(layer1 == Layers::PUCK && layer2 == Layers::GOAL_NET))
+		{
+			const Body& puck_body = (layer1 == Layers::PUCK) ? inBody1 : inBody2;
+			netDampingQueue.push_back(puck_body.GetID());
 		}
 	}
 
@@ -48,7 +57,6 @@ public:
 	}
 };
 
-// An example activation listener
 class MyBodyActivationListener : public BodyActivationListener
 {
 public:

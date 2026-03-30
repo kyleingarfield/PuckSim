@@ -22,14 +22,24 @@ const PlayerParams ATTACKER_PARAMS = {
 	7.5f, 8.75f, 7.5f, 8.5f, // speed caps
 	false, 0.1f, 7.6f, 7.0f, // gameplay
 	90.0f, 2.0f, 1.2f, 1.3f, // mass, gravity, hover dist/raycast
-	100.0f, 8.0f, 40.0f // PID gains, max force
+	100.0f, 8.0f, 40.0f, // PID gains, max force
+	2.0f, 1.8f, 5.0f, 0.015f, 0.25f,
+	1.5f, 4.5f, 1.3125f, 3.0f, 2.25f,
+	50.0f, 8.0f,
+	12.5f,
+	0.75f, 6.0f
 };
 
 const PlayerParams GOALIE_PARAMS = {
 	5.0f, 6.25f, 5.0f, 6.0f,
 	true, 1.0f, 5.1f, 5.0f,
 	90.0f, 2.0f, 1.2f, 1.3f,
-	100.0f, 8.0f, 40.0f
+	100.0f, 8.0f, 40.0f,
+	2.0f, 1.8f, 5.0f, 0.015f, 0.25f,
+	1.5f, 4.5f, 1.3125f, 3.0f, 2.25f,
+	50.0f, 8.0f,
+	12.5f,
+	0.75f, 6.0f
 };
 namespace {
 	class IceLayerFilter : public ObjectLayerFilter
@@ -95,13 +105,13 @@ Player CreatePlayer(BodyInterface& bi, const PlayerParams& params, RVec3 startPo
 	ShapeSettings::ShapeResult mesh_shape_result = mesh_compound.Create();
 	ShapeRefC mesh_shape = mesh_shape_result.Get();
 
-	BodyCreationSettings player_mesh_settings(player_shape, startPos, Quat::sIdentity(), EMotionType::Kinematic, Layers::PLAYER_MESH);
+	BodyCreationSettings player_mesh_settings(mesh_shape, startPos, Quat::sIdentity(), EMotionType::Kinematic, Layers::PLAYER_MESH);
 	player_mesh_settings.mFriction = 0.0f;
 	player_mesh_settings.mRestitution = 0.2f; 
 
 	BodyID player_mesh_id = bi.CreateAndAddBody(player_mesh_settings, EActivation::Activate);
 
-	return { player_id, player_mesh_id, 0.0f, &params };
+	return { player_id, player_mesh_id, 0.0f, &params , Vec3(0, 1, 0), 1.0f, 0.0f };
 }
 
 void DestroyPlayer(BodyInterface& bi, Player& player)
@@ -144,4 +154,135 @@ void UpdatePlayerHover(BodyInterface& bi, PhysicsSystem& ps, Player& player, flo
 void SyncPlayerMesh(BodyInterface& bi, const Player& player, float dt)
 {
 	bi.MoveKinematic(player.meshId, bi.GetPosition(player.bodyId), bi.GetRotation(player.bodyId), dt);
+}
+
+void UpdateKeepUpright(BodyInterface& bi, Player& player, float dt)
+{
+	Quat rot = bi.GetRotation(player.bodyId);
+	Vec3 currentUp = rot * Vec3(0, 1, 0);
+
+	Vec3 error = Vec3(0, 1, 0) - currentUp;
+	Vec3 valueDerivate = (currentUp - player.prevUp) / dt;
+	Vec3 pidOutput = player.params->keepUprightPGain * player.balance * error
+		+ player.params->keepUprightDGain * player.balance * (-valueDerivate);
+
+	Vec3 torqueAxis = pidOutput.Cross(Vec3(0, 1, 0));
+	Vec3 angVel = bi.GetAngularVelocity(player.bodyId);
+	angVel += -torqueAxis * dt;
+	bi.SetAngularVelocity(player.bodyId, angVel);
+
+	player.prevUp = currentUp;
+}
+
+void UpdateMovement(BodyInterface& bi, Player& player, const PlayerInput& input, float dt)
+{
+	Vec3 vel = bi.GetLinearVelocity(player.bodyId);
+	float speed = Vec3(vel.GetX(), 0, vel.GetZ()).Length();
+
+	Quat rot = bi.GetRotation(player.bodyId);
+	Vec3 forward = rot * Vec3(0, 0, 1);
+
+	float accel = 0.0f;
+	float forwardSpeed = forward.Dot(vel);  // positive = moving forward, negative = backward
+
+	if (input.forward > 0.0f) {
+		if (forwardSpeed < 0.0f)  // moving backward, input forward = braking
+			accel = player.params->brakeAcceleration;
+		else if (speed < player.params->maxForwardSpeed)
+			accel = player.params->forwardAcceleration;
+	}
+	else if (input.forward < 0.0f) {
+		if (forwardSpeed > 0.0f)  // moving forward, input backward = braking
+			accel = -player.params->brakeAcceleration;
+		else if (speed < player.params->maxBackwardSpeed)
+			accel = player.params->backwardAcceleration * input.forward;
+	}
+
+	bi.AddForce(player.bodyId, forward * accel * player.params->mass);
+
+	vel = bi.GetLinearVelocity(player.bodyId);
+	float maxSpeed = (input.forward >= 0.0f) ? player.params->maxForwardSpeed : player.params->maxBackwardSpeed;
+
+	if (speed > maxSpeed) {
+		vel *= (1.0f - player.params->overspeedDrag * dt);
+	}
+	else { vel *= (1.0f - player.params->drag * dt); }
+
+	bi.SetLinearVelocity(player.bodyId, vel);
+
+	Vec3 angVel = bi.GetAngularVelocity(player.bodyId);
+	Vec3 localAngVel = rot.Conjugated() * angVel;  // world to local
+	float turnSpeed = localAngVel.GetY();
+	turnSpeed = turnSpeed < 0 ? -turnSpeed : turnSpeed;
+
+	if (input.turn != 0.0f) {
+		bool sameDirection = (input.turn > 0.0f) == (localAngVel.GetY() > 0.0f);
+
+		float turnAccel;
+
+		if (sameDirection && turnSpeed < player.params->maxTurnSpeed) {
+			turnAccel = player.params->turnAcceleration * input.turn;
+		}
+		else if (!sameDirection) {
+			turnAccel = player.params->turnBrakeAcceleration * input.turn;
+		}
+		else { turnAccel = 0.0f; }
+
+		angVel += Vec3(0, turnAccel * dt, 0);  // world Y axis
+	}
+
+	float dragFactor;
+	if (turnSpeed > player.params->maxTurnSpeed) {
+		dragFactor = 1.0f - player.params->turnOverspeedDrag * dt;
+	}
+	else if (input.turn == 0.0f) {
+		dragFactor = 1.0f - player.params->turnDrag * dt;
+	}
+	else { dragFactor = 1.0f; }
+
+	angVel = Vec3(angVel.GetX(), angVel.GetY() * dragFactor, angVel.GetZ());
+	bi.SetAngularVelocity(player.bodyId, angVel);
+}
+
+void UpdateSkate(BodyInterface& bi, Player& player, float dt)
+{
+	Vec3 vel = bi.GetLinearVelocity(player.bodyId);
+	Quat rot = bi.GetRotation(player.bodyId);
+	Vec3 localVel = rot.Conjugated() * vel;
+
+	float lateralDrift = -localVel.GetX();
+	float maxCorrection = player.params->skateTraction * dt;
+	float correction = (lateralDrift > maxCorrection) ? maxCorrection :
+		(lateralDrift < -maxCorrection) ? -maxCorrection : lateralDrift;
+
+	Vec3 worldRight = rot * Vec3(1, 0, 0);
+	vel += worldRight * correction * player.balance;
+	bi.SetLinearVelocity(player.bodyId, vel);
+}
+
+void UpdateVelocityLean(BodyInterface& bi, Player& player, float dt)
+{
+	Vec3 vel = bi.GetLinearVelocity(player.bodyId);
+	Quat rot = bi.GetRotation(player.bodyId);
+	Vec3 localVel = rot.Conjugated() * vel;
+	float forwardSpeed = localVel.GetZ();
+
+	Vec3 angVel = bi.GetAngularVelocity(player.bodyId);
+	Vec3 localAngVel = rot.Conjugated() * angVel;
+	float turnRate = localAngVel.GetY();
+
+	Vec3 worldRight = rot * Vec3(1, 0, 0);
+	Vec3 worldForward = rot * Vec3(0, 0, 1);
+
+	float speed = Vec3(vel.GetX(), 0, vel.GetZ()).Length();
+	float maxSpeed = player.params->maxForwardSpeed > player.params->maxBackwardSpeed
+		? player.params->maxForwardSpeed : player.params->maxBackwardSpeed;
+	float linearIntensity = speed / maxSpeed;
+	if (linearIntensity < 0.1f) linearIntensity = 0.1f;
+
+	Vec3 rollTorque = worldRight * forwardSpeed * player.params->velocityLeanLinearMult * linearIntensity;
+	Vec3 pitchTorque = -worldForward * turnRate * player.params->velocityLeanAngularMult * linearIntensity;
+
+	angVel += (rollTorque + pitchTorque) * dt;
+	bi.SetAngularVelocity(player.bodyId, angVel);
 }

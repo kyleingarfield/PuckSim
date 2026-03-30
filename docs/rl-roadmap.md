@@ -8,38 +8,45 @@ Path from current state (Phase 6 complete) to first RL training run. Curriculum 
 
 **New file: `Goal.h` / `Goal.cpp`**
 
-Build out complete goal structures (both blue and red) with all collider geometry from MeshData.h.
+Build out complete goal structures (both blue and red). Move goal triggers from Rink into Goal. See `docs/phase7-guide.md` Part E for full verified details.
 
-### Goal Posts
-- 3 capsules per goal (2 vertical posts + 1 crossbar)
-- Post radius: 0.06, heights: 3.11 (posts), 2.0 (crossbar)
-- Post centers: (0, 1.15, -1.56) for posts, (+/-1.5, 1.15, -0.62) for crossbar
-- Layer: GOAL_POST, static
+### Goal Container Transforms (verified against level_1.unity)
+- Red: position (0, 0, -34.1), no rotation, scale (0.9, 0.9, 0.8)
+- Blue: position (0, 0, 34.1), 180° Y rotation, scale (0.9, 0.9, 0.8)
+- All children: local pos (0,0,0), 90° X rotation, scale (1,1,1)
 
-### Goal Frame
-- Non-convex MeshShape from GOAL_FRAME_VERTICES (1,128 verts, 668 tris)
-- Layer: GOAL_FRAME, static
-- Coordinate transform needed (verify against prefab transform)
+### Goal Posts (Layer 11)
+- 3 capsules per goal (1 crossbar + 2 depth posts)
+- Capsule values in local space, must apply full transform chain
+- Post radius: 0.06, heights: 3.11 (crossbar along X), 2.0 (posts along Z)
+- Centers: (0, 1.15, -1.56) crossbar, (±1.5, 1.15, -0.62) posts
 
-### Goal Net Collider
+### ~~Goal Frame (Layer 18)~~ — SKIP
+- Frame MeshCollider is **DISABLED** in both goals (m_Enabled: 0)
+- Visual only, no physics collision. Do not create.
+
+### Goal Net Collider (Layer 14)
 - Non-convex MeshShape from GOAL_NET_COLLIDER_VERTICES (276 verts, 152 tris)
-- Layer: GOAL_NET, static
-- **Net damping**: when puck is inside net, clamp linear/angular velocity to 2 m/s magnitude, apply 0.25 damping coefficient (from GoalNetCollider.cs)
-- Requires contact listener logic to detect puck-inside-net state
+- Same transform chain as other children (90° X rotation + parent scale + parent pos/rot)
+- Physics material: Goal Net (friction 0, bounciness 0)
+- **Net damping** (OnCollisionEnter / OnContactAdded — fires once per contact):
+  1. Skip if puck is grounded
+  2. Linear velocity × 0.75
+  3. Angular velocity × 0.75
+  4. Clamp linear to 2 m/s, angular to 2 rad/s
 
-### Goal Player Collider
+### Goal Player Collider (Layer 16)
 - Convex hull from GOAL_PLAYER_COLLIDER_VERTICES (73 verts)
-- Layer: PLAYER_COLLIDER, static
-- Prevents players from entering the goal crease area
+- Prevents players from entering goal area
 
-### Goal Trigger Upgrade
+### Goal Trigger (Layer 15)
 - Replace current BoxShape triggers with ConvexHullShape from GOAL_TRIGGER_VERTICES (24 verts)
-- Same sensor behavior, more accurate shape
+- IsTrigger / sensor, same scoring detection
 
 ### Deliverable
-- Both goals fully constructed with all sub-components
-- Net damping functional (puck slows inside net)
-- All transforms verified against AssetRipper prefab data
+- Both goals fully constructed (4 bodies each: posts, net, trigger, player collider)
+- Net damping functional in contact listener
+- Goal triggers moved from Rink to Goal, Rink struct simplified
 
 ---
 

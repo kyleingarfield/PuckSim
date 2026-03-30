@@ -2,6 +2,7 @@
 #include "Player.h"
 #include "Stick.h"
 #include "Rink.h"
+#include "Goal.h"
 #include "Puck.h"
 #include "Listeners.h"
 #include "JoltSetup.h"
@@ -57,32 +58,20 @@ int main(int argc, char** argv)
 
 
 	Rink rink = CreateRink(body_interface);
+	Goal blueGoal = CreateGoal(body_interface, true);
+	Goal redGoal = CreateGoal(body_interface, false);
 	Puck puck = CreatePuck(body_interface, RVec3(0.0_r, 0.2_r, 0.0_r));
-	auto printPuck = [&](const char* label) {
-		RVec3 p = body_interface.GetPosition(puck.puckId);
-		RVec3 com = body_interface.GetCenterOfMassPosition(puck.puckId);
-		cout << label << " Pos=(" << p.GetX() << ", " << p.GetY() << ", " << p.GetZ()
-			<< ") COM=(" << com.GetX() << ", " << com.GetY() << ", " << com.GetZ() << ")" << endl;
-	};
-	printPuck("After CreatePuck");
 	Player attacker = CreatePlayer(body_interface, ATTACKER_PARAMS, RVec3(5.0_r, 0.5_r, 0.0_r));
-	printPuck("After attacker");
 	Player goalie = CreatePlayer(body_interface, GOALIE_PARAMS, RVec3(-5.0_r, 0.5_r, 0.0_r));
-	printPuck("After goalie");
 	Stick attackerStick = CreateStick(body_interface, ATTACKER_STICK_PARAMS, RVec3(5.0_r, 1.5_r, 0.0_r));
-	printPuck("After att stick");
 	Stick goalieStick = CreateStick(body_interface, GOALIE_STICK_PARAMS, RVec3(-5.0_r, 1.5_r, 0.0_r));
-	printPuck("After goal stick");
 	physics_system.OptimizeBroadPhase();
-	printPuck("After optimize");
-
-	// TEST: Set puck velocity towards side wall
-	body_interface.SetLinearVelocity(puck.puckId, Vec3(10.0f, 0.0f, 0.0f));
 
 	const float cDeltaTime = 1.0f / 50.0f;
 	const int cCollisionSteps = 1;
 
-	physics_system.OptimizeBroadPhase();
+	PlayerInput attackerInput = { 0.0f, 0.0f, 0.0f };
+	PlayerInput goalieInput = { 0.0f, 0.0f, 0.0f };
 
 	uint step = 0;
 	while (step < 500)
@@ -90,8 +79,17 @@ int main(int argc, char** argv)
 		++step;
 
 		SyncPuckTrigger(body_interface, puck);
+
 		UpdatePlayerHover(body_interface, physics_system, attacker, cDeltaTime);
 		UpdatePlayerHover(body_interface, physics_system, goalie, cDeltaTime);
+		UpdateKeepUpright(body_interface, attacker, cDeltaTime);
+		UpdateKeepUpright(body_interface, goalie, cDeltaTime);
+		UpdateMovement(body_interface, attacker, attackerInput, cDeltaTime);
+		UpdateMovement(body_interface, goalie, goalieInput, cDeltaTime);
+		UpdateSkate(body_interface, attacker, cDeltaTime);
+		UpdateSkate(body_interface, goalie, cDeltaTime);
+		UpdateVelocityLean(body_interface, attacker, cDeltaTime);
+		UpdateVelocityLean(body_interface, goalie, cDeltaTime);
 		SyncPlayerMesh(body_interface, attacker, cDeltaTime);
 		SyncPlayerMesh(body_interface, goalie, cDeltaTime);
 
@@ -109,18 +107,28 @@ int main(int argc, char** argv)
 			goalie.bodyId, cDeltaTime
 		);
 
-		if (step <= 20 || step % 50 == 0) {
-			RVec3 puck_pos = body_interface.GetCenterOfMassPosition(puck.puckId);
-			Vec3 puck_vel = body_interface.GetLinearVelocity(puck.puckId);
-			cout << "Step " << step
-				<< "  Pos=(" << puck_pos.GetX() << ", " << puck_pos.GetY() << ", " << puck_pos.GetZ()
-				<< ") Vel=(" << puck_vel.GetX() << ", " << puck_vel.GetY() << ", " << puck_vel.GetZ() << ")" << endl;
-		}
-
 		physics_system.Update(cDeltaTime, cCollisionSteps, &temp_allocator, &job_system);
+
+		// Apply net damping queued by contact listener (OnCollisionEnter equivalent)
+		for (BodyID id : contact_listener.netDampingQueue) {
+			Vec3 vel = body_interface.GetLinearVelocity(id);
+			vel *= 0.75f;
+			if (vel.Length() > 2.0f)
+				vel = vel.Normalized() * 2.0f;
+			body_interface.SetLinearVelocity(id, vel);
+
+			Vec3 angVel = body_interface.GetAngularVelocity(id);
+			angVel *= 0.75f;
+			if (angVel.Length() > 2.0f)
+				angVel = angVel.Normalized() * 2.0f;
+			body_interface.SetAngularVelocity(id, angVel);
+		}
+		contact_listener.netDampingQueue.clear();
 	}
 
 	DestroyRink(body_interface, rink);
+	DestroyGoal(body_interface, blueGoal);
+	DestroyGoal(body_interface, redGoal);
 	DestroyPuck(body_interface, puck);
 	DestroyStick(body_interface, attackerStick);
 	DestroyStick(body_interface, goalieStick);

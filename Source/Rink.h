@@ -13,8 +13,6 @@ using namespace JPH;
 struct Rink {
 	BodyID iceId;
 	BodyID boardsId;
-	BodyID blueGoalTriggerId;
-	BodyID redGoalTriggerId;
 };
 
 Rink CreateRink(BodyInterface& bi);

@@ -30,6 +30,28 @@ struct PlayerParams {
 	float hoverPGain;
 	float hoverDGain;
 	float hoverMaxForce;
+
+	float forwardAcceleration;
+	float backwardAcceleration;
+	float brakeAcceleration;
+	float drag;
+	float overspeedDrag;
+
+	float turnAcceleration;
+	float turnBrakeAcceleration;
+	float maxTurnSpeed;
+	float turnDrag;
+	float turnOverspeedDrag;
+
+	float keepUprightPGain;
+	float keepUprightDGain;
+
+	float skateTraction;
+
+	float velocityLeanLinearMult;
+	float velocityLeanAngularMult;
+
+
 };
 
 extern const PlayerParams ATTACKER_PARAMS;
@@ -40,8 +62,16 @@ struct Player {
 	BodyID meshId;
 	float prevHoverDist;
 	const PlayerParams* params;
+	Vec3 prevUp;
+	float balance;
+	float laterality;
 };
 
+struct PlayerInput {
+	float forward;
+	float turn;
+	float lateral;
+};
 Player CreatePlayer(BodyInterface& bi, const PlayerParams& params, RVec3 startPos);
 
 void DestroyPlayer(BodyInterface& bi, Player& player);
@@ -49,3 +79,12 @@ void DestroyPlayer(BodyInterface& bi, Player& player);
 void UpdatePlayerHover(BodyInterface& bi, PhysicsSystem& ps, Player& player, float dt);
 
 void SyncPlayerMesh(BodyInterface& bi, const Player& player, float dt);
+
+void UpdateKeepUpright(BodyInterface& bi, Player& player, float dt);
+
+void UpdateMovement(BodyInterface& bi, Player& player, const PlayerInput& input, float dt);
+
+void UpdateSkate(BodyInterface& bi, Player& player, float dt);
+
+void UpdateVelocityLean(BodyInterface& bi, Player& player, float dt);
+

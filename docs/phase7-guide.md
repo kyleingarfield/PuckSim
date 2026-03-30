@@ -1,4 +1,4 @@
-# Phase 7 — Accurate Collision Geometry
+# Phase 7 — Accurate Collision Geometry (DONE)
 
 ## Overview
 
@@ -234,22 +234,37 @@ The game has large box colliders outside the rink as safety nets (Back, Front, R
 
 ---
 
-## Part E — Goal Structures
+## Part E — Goal Structures (DONE)
 
-### Goal Positions & Transforms
+### Goal Container Transforms (verified against level_1.unity)
 
 | Goal | World Position | Rotation | Scale |
 |------|---------------|----------|-------|
 | Red | (0, 0, -34.1) | Identity | (0.9, 0.9, 0.8) |
 | Blue | (0, 0, 34.1) | 180° around Y | (0.9, 0.9, 0.8) |
 
-All children have local position (0,0,0) and **90° X rotation**. Child local (x, y, z) maps to parent (x, z, -y).
+All children have local position (0,0,0), **90° X rotation**, and scale (1,1,1). Every goal child uses the same transform chain.
+
+### Transform Chain (all goal children)
+
+For **Red Goal** (no parent rotation):
+1. Apply child 90° X rotation (Unity left-handed): `(x, y, z) → (x, -z, y)`
+2. Apply parent scale: `(x×0.9, y×0.9, z×0.8)`
+3. Translate to parent position: `+ (0, 0, -34.1)`
+
+For **Blue Goal** (parent has 180° Y rotation):
+1. Apply child 90° X rotation: `(x, y, z) → (x, -z, y)`
+2. Apply parent scale: `(x×0.9, y×0.9, z×0.8)`
+3. Apply parent 180° Y rotation: `(x, y, z) → (-x, y, -z)`
+4. Translate to parent position: `+ (0, 0, 34.1)`
+
+Note: Blue goal's 180° Y rotation + Z=34.1 means both goals face toward center ice.
 
 ### Goal Post Colliders (Layer 11) — Capsules
 
-3 CapsuleColliders per goal. The mesh collider on this object is **disabled**.
+3 CapsuleColliders per goal on a single "Goal Post Collider" GameObject. The MeshCollider on this object is **disabled** — only the capsules are active.
 
-**Local-space values (before child 90° X rotation and parent scale):**
+**Capsule values in Unity local space (before any transforms):**
 
 | Capsule | Radius | Height | Direction | Center | Role |
 |---------|--------|--------|-----------|--------|------|
@@ -257,45 +272,38 @@ All children have local position (0,0,0) and **90° X rotation**. Child local (x
 | Right Post | 0.06 | 2.0 | Z (2) | (1.5, 1.15, -0.62) | Right side depth post |
 | Left Post | 0.06 | 2.0 | Z (2) | (-1.5, 1.15, -0.62) | Left side depth post |
 
-**Transform chain**: Child 90° X rotation → Parent scale (0.9, 0.9, 0.8) → Parent translation.
+**Computing world-space capsules for Jolt:**
 
-Non-uniform parent scale distorts capsules. Compute final world-space dimensions and create Jolt capsules directly at those sizes. No physics material assigned (default: friction 0, bounciness 0).
+The capsule centers must go through the full transform chain. The capsule directions also rotate (90° X rotation changes which axis the capsule runs along). The non-uniform parent scale (0.9, 0.9, 0.8) distorts capsule radius slightly depending on orientation — use the dominant perpendicular axis scale for radius since the error is sub-millimeter (0.06 × 0.9 vs 0.06 × 0.8 = 0.054 vs 0.048).
 
-### Goal Frame (Layer 18) — Real Mesh
+No physics material assigned (default: friction 0, bounciness 0).
 
-**Non-convex MeshCollider** using Frame.asset:
-- 1,128 vertices, 668 triangles (from GLB export)
-- Raw AABB: X[-1.70, 1.70] Y[-0.84, 1.20] Z[-1.62, 0.00]
+### ~~Goal Frame (Layer 18)~~ — SKIP
 
-Already extracted as `GOAL_FRAME_VERTICES` / `GOAL_FRAME_INDICES` in MeshData.h.
+**The Frame MeshCollider is DISABLED in the scene** (m_Enabled: 0 on both Blue and Red Frame objects). The goal frame is visual only — it does not participate in physics collision. Do not create a frame body.
 
-**Transform chain** (must apply to vertices before creating Jolt MeshShape):
-1. Child 90° X rotation: (x, y, z) → (x, z, -y)
-2. Parent scale: (0.9, 0.9, 0.8)
-3. Parent translation: (0, 0, ±34.1) for red/blue
-
-Apply once per goal (two separate MeshShapes with mirrored transforms). Blue goal also has 180° Y rotation.
+The Puck ↔ Goal Frame collision pair (Layer 7 ↔ 18) exists in the collision matrix but never fires because there is no active collider on Layer 18. Keep the pair in Layers.cpp for correctness but do not create frame bodies.
 
 ### Net Collider (Layer 14) — Real Mesh + Damping
 
 **Non-convex MeshCollider** using Net Collider.asset:
 - 276 vertices, 152 triangles (from GLB export)
 - Raw AABB: X[-1.68, 1.68] Y[-0.82, 1.16] Z[-1.60, 0.00]
-- Physics Material: Goal Net (friction 0, bounciness 0, bounce combine: Minimum)
+- Child transform: 90° X rotation at (0,0,0)
+- Physics Material: Goal Net (friction 0, bounciness 0, bounce combine: Average)
 - Tagged "Soft Collider"
 
-Already extracted as `GOAL_NET_COLLIDER_VERTICES` / `GOAL_NET_COLLIDER_INDICES` in MeshData.h. Same transform chain as goal frame.
+Already extracted as `GOAL_NET_COLLIDER_VERTICES` / `GOAL_NET_COLLIDER_INDICES` in MeshData.h. Apply the same transform chain as all goal children.
 
-**Damping behavior** (GoalNetCollider.cs — .cs defaults are authoritative, no prefab override found):
+**Damping behavior** (GoalNetCollider.cs `OnCollisionEnter` — fires ONCE on initial contact, not continuously):
 
-On puck collision with net collider:
-1. Linear velocity × 0.75 (25% damping)
-2. Angular velocity × 0.75
-3. Clamp linear velocity to max **2 m/s**
-4. Clamp angular velocity to max **2 rad/s**
-5. Skip if puck is grounded
+1. Get puck from collision, skip if puck is grounded
+2. Linear velocity × 0.75 (multiply, not subtract)
+3. Angular velocity × 0.75
+4. Clamp linear velocity magnitude to max **2 m/s**
+5. Clamp angular velocity magnitude to max **2 rad/s**
 
-Implement via `ContactListener::OnContactAdded` — detect puck vs GOAL_NET layer contacts and modify puck velocity.
+Implement via `ContactListener::OnContactAdded` — detect puck vs GOAL_NET layer contacts and modify puck velocity. OnContactAdded matches Unity's OnCollisionEnter (fires once per contact pair).
 
 ### Goal Trigger (Layer 15) — Real Mesh
 
@@ -303,8 +311,9 @@ Implement via `ContactListener::OnContactAdded` — detect puck vs GOAL_NET laye
 - 24 vertices, 12 triangles — basically a box but exact
 - Raw AABB: X[-1.52, 1.52] Y[0.69, 0.74] Z[-1.48, 0.00]
 - Free performance (convex)
+- IsTrigger: true
 
-Already extracted as `GOAL_TRIGGER_VERTICES`. Replace current box sensor with ConvexHullShape. Same transform chain as other goal children.
+Already extracted as `GOAL_TRIGGER_VERTICES`. Replace current BoxShape sensor with ConvexHullShape. Same transform chain as all goal children.
 
 ### Goal Player Collider (Layer 16) — Real Mesh
 
@@ -312,7 +321,7 @@ Already extracted as `GOAL_TRIGGER_VERTICES`. Replace current box sensor with Co
 - 73 vertices, 33 triangles
 - Raw AABB: X[-1.56, 1.55] Y[-0.66, 1.13] Z[-1.48, 0.00]
 - Layer 16 — collides with Player (Layer 8) only
-- Prevents player from entering goal
+- Prevents player from entering goal area
 - Free performance (convex)
 
 Already extracted as `GOAL_PLAYER_COLLIDER_VERTICES`. Use as ConvexHullShape. Same transform chain.
@@ -337,7 +346,7 @@ All meshes have been extracted from [PuckAssets](https://github.com/ckhawks/Puck
 | STICK_SHAFT_COLLIDER | 24 | 12 | ConvexHull | Stick shaft |
 | STICK_BLADE_COLLIDER | 34 | 16 | ConvexHull | Stick blade |
 | BARRIER_COLLIDER | 256 | 128 | TriangleMesh | Rink boards |
-| GOAL_FRAME | 1128 | 668 | TriangleMesh | Goal frame (×2) |
+| GOAL_FRAME | 1128 | 668 | ~~TriangleMesh~~ | ~~Goal frame~~ — **SKIP: collider disabled in game** |
 | GOAL_NET_COLLIDER | 276 | 152 | TriangleMesh | Goal net (×2) |
 | GOAL_TRIGGER | 24 | 12 | ConvexHull | Goal trigger (×2) |
 | GOAL_PLAYER_COLLIDER | 73 | 33 | ConvexHull | Goal keep-out (×2) |
@@ -355,67 +364,66 @@ Note: Triangle counts from GLB export are lower than the .asset file counts (GLB
 | File | Changes |
 |------|---------|
 | `Source/MeshData.h` | **DONE** — extracted mesh vertex/index arrays (auto-generated) |
-| `Source/Puck.h/cpp` | Replace SphereShape with ConvexHullShape |
-| `Source/Stick.h/cpp` | Replace CapsuleShape+BoxShape with ConvexHullShape+ConvexHullShape |
-| `Source/Player.h/cpp` | Add head SphereShape to player compound |
-| `Source/Rink.h/cpp` | Replace box walls with MeshShape boards, add full goal structures |
-| `Source/Listeners.h` | Add net collider damping in contact listener |
-| `Source/Layers.cpp` | Verify all goal-related collision pairs |
+| ~~`Source/Puck.h/cpp`~~ | **DONE** — ConvexHullShape from PUCK_LEVEL_COLLIDER |
+| ~~`Source/Stick.h/cpp`~~ | **DONE** — ConvexHullShape shaft + blade compound |
+| ~~`Source/Player.h/cpp`~~ | **DONE** — Capsule + head sphere + groin/torso hulls |
+| ~~`Source/Rink.h/cpp`~~ | **DONE** — MeshShape barrier boards with coordinate transform |
+| `Source/Goal.h/cpp` | **NEW** — Goal struct, CreateGoal/DestroyGoal (posts, net, trigger, player collider) |
+| `Source/Listeners.h` | Add net collider damping in OnContactAdded |
+| `Source/Layers.cpp` | Verify all goal-related collision pairs are enabled |
+| `Source/PuckSim.cpp` | Replace standalone goal triggers with Goal objects |
 
 ### Implementation Order
 
 1. ~~**Extract meshes**~~ — DONE (`Source/MeshData.h`)
-2. **Puck shape** — Replace sphere with convex hull (highest impact fix)
-3. **Stick shape** — Replace capsule+box with convex hulls
-4. **Player head** — Add sphere to player compound
-5. **Rink boards** — Replace box walls with triangle mesh
-6. **Goal posts** — 3 capsules per goal
-7. **Goal frame** — Triangle mesh from extracted data
-8. **Goal net collider** — Triangle mesh + contact listener damping
-9. **Goal trigger** — Convex hull from extracted data
-10. **Goal player collider** — Convex hull from extracted data
-11. **Test everything**
+2. ~~**Puck shape**~~ — DONE (convex hull from PUCK_LEVEL_COLLIDER)
+3. ~~**Stick shape**~~ — DONE (convex hull shaft + blade compound)
+4. ~~**Player head + mesh colliders**~~ — DONE (capsule + head sphere + groin/torso hulls)
+5. ~~**Rink boards**~~ — DONE (barrier MeshShape with correct coordinate transform)
+6. ~~**Goal posts**~~ — DONE (3 capsules per goal, transform chain applied)
+7. ~~**Goal frame**~~ — SKIP (MeshCollider disabled in game)
+8. ~~**Goal net collider**~~ — DONE (triangle mesh + contact listener damping via OnContactAdded)
+9. ~~**Goal trigger**~~ — DONE (convex hull sensor, replaces BoxShape)
+10. ~~**Goal player collider**~~ — DONE (convex hull, prevents player entry)
+11. ~~**Test everything**~~ — DONE (goal scoring detection + net damping verified)
 
 ### Collision Pairs to Verify
 
-| Pair | Layers |
-|------|--------|
-| Puck ↔ Goal Post | 7 ↔ 11 |
-| Puck ↔ Goal Frame | 7 ↔ 18 |
-| Puck ↔ Goal Net | 7 ↔ 14 |
-| Player ↔ Goal Post | 8 ↔ 11 |
-| Player ↔ Goal Net | 8 ↔ 14 |
-| Player ↔ Player Collider | 8 ↔ 16 |
-| Goal Trigger ↔ Puck Trigger | 15 ↔ 19 |
+| Pair | Layers | Notes |
+|------|--------|-------|
+| Puck ↔ Goal Post | 7 ↔ 11 | Puck bounces off posts |
+| Puck ↔ Goal Frame | 7 ↔ 18 | Keep in matrix but no body (frame collider disabled) |
+| Puck ↔ Goal Net | 7 ↔ 14 | Puck enters net + damping applied |
+| Player ↔ Goal Post | 8 ↔ 11 | Player blocked by posts |
+| Player ↔ Goal Net | 8 ↔ 14 | Player blocked by net |
+| Player ↔ Player Collider | 8 ↔ 16 | Player blocked from goal area |
+| Goal Trigger ↔ Puck Trigger | 15 ↔ 19 | Goal scoring detection |
 
-### Updated Rink Struct
+### Goal Struct (new file: Goal.h)
 
 ```
-Rink {
+struct Goal {
+    BodyID postsId;           // StaticCompoundShape: 3 capsules
+    BodyID netColliderId;     // MeshShape + damping behavior via contact listener
+    BodyID triggerId;         // ConvexHullShape sensor
+    BodyID playerColliderId;  // ConvexHullShape
+};
+```
+
+Rink struct simplified — goal triggers move from Rink to Goal:
+
+```
+struct Rink {
     BodyID iceId;
-    BodyID boardsId;              // MeshShape — replaces 4 box walls
-
-    // Blue goal
-    BodyID blueGoalTriggerId;     // ConvexHullShape sensor
-    BodyID bluePostsId;           // Compound: 3 capsules
-    BodyID blueFrameId;           // MeshShape
-    BodyID blueNetColliderId;     // MeshShape + damping behavior
-    BodyID bluePlayerColliderId;  // ConvexHullShape
-
-    // Red goal (mirror of blue)
-    BodyID redGoalTriggerId;
-    BodyID redPostsId;
-    BodyID redFrameId;
-    BodyID redNetColliderId;
-    BodyID redPlayerColliderId;
-}
+    BodyID boardsId;
+};
 ```
 
 ---
 
 ## Part H — Key Gotchas
 
-1. **MeshShape triangle winding**: Jolt MeshShape is single-sided. Normals must face inward for rink walls, inward for goal net/frame. If objects pass through, reverse the triangle index order.
+1. **MeshShape triangle winding**: Jolt MeshShape is single-sided. Normals must face inward for rink walls and goal net. If objects pass through, reverse the triangle index order.
 
 2. **MeshShape is static only**: Jolt MeshShapes only work with `EMotionType::Static`. Fine for rink and goals.
 

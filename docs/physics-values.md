@@ -150,8 +150,15 @@ Additional box colliders on the Rink, with 90-degree X and Z rotations applied. 
 
 | Parameter | Value | Source |
 |-----------|-------|--------|
-| Blue Goal Position | (0, 0, 34) | level_1.unity |
-| Red Goal Position | (0, 0, -34) | level_1.unity |
+| Blue Goal Container Position | (0, 0, 34.1) | level_1.unity |
+| Blue Goal Container Rotation | 180° around Y | level_1.unity |
+| Blue Goal Container Scale | (0.9, 0.9, 0.8) | level_1.unity |
+| Red Goal Container Position | (0, 0, -34.1) | level_1.unity |
+| Red Goal Container Rotation | Identity | level_1.unity |
+| Red Goal Container Scale | (0.9, 0.9, 0.8) | level_1.unity |
+| All Children Local Position | (0, 0, 0) | level_1.unity |
+| All Children Local Rotation | 90° around X | level_1.unity |
+| Frame MeshCollider | **DISABLED** (m_Enabled: 0) | level_1.unity |
 | Frame Dimensions | 3.41 W x 2.04 D x 1.62 H | Mesh AABB |
 | Net Dimensions | 3.26 W x 1.92 D x 1.47 H | Mesh AABB |
 | Net Collider Dimensions | 3.37 W x 1.98 D x 1.60 H | Mesh AABB |
