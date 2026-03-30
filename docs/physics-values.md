@@ -100,15 +100,43 @@ Key observations:
 
 ### Boards & Barriers
 
-| Component | Width (X) | Length (Z) | Height | Notes |
-|-----------|-----------|------------|--------|-------|
+#### Visual meshes (not physics — colliders disabled)
+
+| Component | Local Width (X) | Local Length (Z) | Height | Notes |
+|-----------|-----------------|------------------|--------|-------|
 | Barrier (dasher boards) | 30.1 | 61.1 | 0.75 | Z range: -1.0 to -0.25 |
 | Barrier Bottom Border | 30.07 | 61.12 | 0.25 | Kickplate, Z: -0.25 to 0.0 |
 | Barrier Top Border | 30.18 | 61.16 | 0.02 | Cap rail, Z: ~-1.51 |
 | Glass | 30.15 | 61.15 | 3.1 | Sits on boards, Z: -4.6 to -1.5 |
-| Barrier Collider (physics) | 30.8 | 61.8 | 25.0 | Full physics boundary, Z: -20 to +5 |
 
-### Arena Boundary Colliders (BoxColliders)
+#### Barrier Collider (physics — the main rink boundary)
+
+The barrier collider is a **non-convex MeshCollider** (256 vertices, 128 triangles) forming a closed **oval (rounded rectangle)** wall with no openings. It is a child of the "Rink" GameObject at world origin.
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Type | MeshCollider (non-convex) | level_1.unity |
+| Layer | 12 (Boards) | level_1.unity |
+| Tag | Soft Collider | level_1.unity |
+| Material | Barrier (friction 0, bounciness 0.2) | level_1.unity |
+| Transform Scale | (1.25, 1.25, 1) | level_1.unity |
+| Transform Rotation | 90 degrees around X | level_1.unity |
+
+**Local mesh dimensions (before transform):**
+- Straight sides at localX = ±15.4, from localY = -22.833 to +22.833
+- Curved corners from localY = ±22.833 to ±30.9
+- Wall height from localZ = -20.025 to +4.975
+
+**World-space dimensions (after 1.25 scale and 90-degree X rotation):**
+- Side walls at **X = ±19.25**
+- Straight sections from **Z = ±28.54**, curving to ends
+- End walls reach **Z = ±38.625** (at X=0, the tip of the oval)
+- Wall extends from **Y = -4.975** to **Y = +20.025**
+- Goals at Z=±34 are fully inside the oval (~4.5m from end wall)
+
+#### Arena Boundary Colliders (BoxColliders)
+
+Additional box colliders on the Rink, with 90-degree X and Z rotations applied. Layer 12 (Boards), tagged "Soft Collider".
 
 | Collider | Size | Center | Source |
 |----------|------|--------|--------|

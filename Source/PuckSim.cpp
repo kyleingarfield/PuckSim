@@ -1,13 +1,4 @@
-// Jolt Physics Library (https://github.com/jrouwe/JoltPhysics)
-// SPDX-FileCopyrightText: 2025 Jorrit Rouwe
-// SPDX-License-Identifier: CC0-1.0
-// This file is in the public domain. It serves as an example to start building your own application using Jolt Physics. Feel free to copy paste without attribution!
-
-// The Jolt headers don't include Jolt.h. Always include Jolt.h before including any other Jolt header.
-// You can use Jolt.h in your precompiled header to speed up compilation.
 #include <Jolt/Jolt.h>
-
-// Jolt includes
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/TempAllocator.h>
@@ -21,22 +12,14 @@
 #include <Jolt/Physics/Collision/ObjectLayerPairFilterTable.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayerInterfaceTable.h>
 #include <Jolt/Physics/Collision/BroadPhase/ObjectVsBroadPhaseLayerFilterTable.h>
-
-// STL includes
 #include <iostream>
 #include <cstdarg>
 #include <thread>
 
-// Disable common warnings triggered by Jolt, you can use JPH_SUPPRESS_WARNING_PUSH / JPH_SUPPRESS_WARNING_POP to store and restore the warning state
 JPH_SUPPRESS_WARNINGS
 
-// All Jolt symbols are in the JPH namespace
 using namespace JPH;
-
-// If you want your code to compile using single or double precision write 0.0_r to get a Real value that compiles to double or float depending if JPH_DOUBLE_PRECISION is set or not.
 using namespace JPH::literals;
-
-// We're also using STL classes in this example
 using namespace std;
 
 // Callback for traces, connect this to your own trace function if you have one
@@ -67,10 +50,6 @@ static bool AssertFailedImpl(const char* inExpression, const char* inMessage, co
 
 #endif // JPH_ENABLE_ASSERTS
 
-// Layer that objects can be in, determines which other objects it can collide with
-// Typically you at least want to have 1 layer for moving bodies and 1 layer for static bodies, but you can have more
-// layers if you want. E.g. you could have a layer for high detail collision (which is not used by the physics simulation
-// but only if you do collision testing).
 namespace Layers
 {
 	static constexpr ObjectLayer DEFAULT = 0;
@@ -96,12 +75,6 @@ namespace Layers
 	static constexpr ObjectLayer NUM_LAYERS = 20;
 };
 
-
-// Each broadphase layer results in a separate bounding volume tree in the broad phase. You at least want to have
-// a layer for non-moving and moving objects to avoid having to update a tree full of static objects every frame.
-// You can have a 1-on-1 mapping between object layers and broadphase layers (like in this case) but if you have
-// many object layers you'll be creating many broad phase trees, which is not efficient. If you want to fine tune
-// your broadphase layers define JPH_TRACK_BROADPHASE_STATS and look at the stats reported on the TTY.
 namespace BroadPhaseLayers
 {
 	static constexpr BroadPhaseLayer STATIC(0);
@@ -124,15 +97,30 @@ public:
 		return ValidateResult::AcceptAllContactsForThisBodyPair;
 	}
 
-	virtual void			OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
+	virtual void OnContactAdded(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
+	{
+		ObjectLayer layer1 = inBody1.GetObjectLayer();
+		ObjectLayer layer2 = inBody2.GetObjectLayer();
+
+		if ((layer1 == Layers::GOAL_TRIGGER && layer2 == Layers::PUCK_TRIGGER) ||
+			(layer1 == Layers::PUCK_TRIGGER && layer2 == Layers::GOAL_TRIGGER))
+		{
+			// Determine which goal by checking Z position of the goal trigger body
+			const Body& goal_body = (layer1 == Layers::GOAL_TRIGGER) ? inBody1 : inBody2;
+			float goal_z = goal_body.GetPosition().GetZ();
+
+			if (goal_z > 0)
+				cout << "GOAL SCORED — Blue goal (far, +Z)" << endl;
+			else
+				cout << "GOAL SCORED — Red goal (near, -Z)" << endl;
+		}
+	}
+
+	virtual void OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
 	{
 	}
 
-	virtual void			OnContactPersisted(const Body& inBody1, const Body& inBody2, const ContactManifold& inManifold, ContactSettings& ioSettings) override
-	{
-	}
-
-	virtual void			OnContactRemoved(const SubShapeIDPair& inSubShapePair) override
+	virtual void OnContactRemoved(const SubShapeIDPair& inSubShapePair) override
 	{
 	}
 };
@@ -141,11 +129,11 @@ public:
 class MyBodyActivationListener : public BodyActivationListener
 {
 public:
-	virtual void		OnBodyActivated(const BodyID& inBodyID, uint64 inBodyUserData) override
+	virtual void OnBodyActivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
 	}
 
-	virtual void		OnBodyDeactivated(const BodyID& inBodyID, uint64 inBodyUserData) override
+	virtual void OnBodyDeactivated(const BodyID& inBodyID, uint64 inBodyUserData) override
 	{
 	}
 };
@@ -293,7 +281,7 @@ int main(int argc, char** argv)
 	// Next we can create a rigid body to serve as the floor, we make a large box
 	// Create the settings for the collision volume (the shape).
 	// Note that for simple shapes (like boxes) you can also directly construct a BoxShape.
-	BoxShapeSettings ice_shape_settings(Vec3(15.0f, 0.0125f, 30.5f));
+	BoxShapeSettings ice_shape_settings(Vec3(15.0f, 0.0125f, 39.0f));
 	ice_shape_settings.SetEmbedded(); // A ref counted object on the stack (base class RefTarget) should be marked as such to prevent it from being freed when its reference count goes to 0.
 
 	// Create the shape
@@ -318,7 +306,7 @@ int main(int argc, char** argv)
 	ShapeSettings::ShapeResult left_wall_shape_result = left_wall_shape_settings.Create();
 	ShapeRefC left_wall_shape = left_wall_shape_result.Get(); 
 
-	BodyCreationSettings left_wall_settings(left_wall_shape, RVec3(-15.4_r, 12.5_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
+	BodyCreationSettings left_wall_settings(left_wall_shape, RVec3(-19.25_r, 12.5_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
 	left_wall_settings.mFriction = 0.0f;
 	left_wall_settings.mRestitution = 0.2f;
 
@@ -333,7 +321,7 @@ int main(int argc, char** argv)
 	ShapeSettings::ShapeResult right_wall_shape_result = right_wall_shape_settings.Create();
 	ShapeRefC right_wall_shape = right_wall_shape_result.Get();
 
-	BodyCreationSettings right_wall_settings(right_wall_shape, RVec3(15.4_r, 12.5_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
+	BodyCreationSettings right_wall_settings(right_wall_shape, RVec3(19.25_r, 12.5_r, 0.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
 	right_wall_settings.mFriction = 0.0f;
 	right_wall_settings.mRestitution = 0.2f;
 
@@ -342,13 +330,13 @@ int main(int argc, char** argv)
 	body_interface.AddBody(right_wall->GetID(), EActivation::DontActivate);
 
 	// FAR END WALL
-	BoxShapeSettings far_wall_shape_settings(Vec3(15.4f, 12.5f, 0.4f));
+	BoxShapeSettings far_wall_shape_settings(Vec3(19.65f, 12.5f, 2.0f));
 	far_wall_shape_settings.SetEmbedded();
 
 	ShapeSettings::ShapeResult far_wall_shape_result = far_wall_shape_settings.Create();
 	ShapeRefC far_wall_shape = far_wall_shape_result.Get();
 
-	BodyCreationSettings far_wall_settings(far_wall_shape, RVec3(0.0_r, 12.5_r, 31.3_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
+	BodyCreationSettings far_wall_settings(far_wall_shape, RVec3(0.0_r, 12.5_r, 39.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
 	far_wall_settings.mFriction = 0.0f;
 	far_wall_settings.mRestitution = 0.2f;
 
@@ -357,13 +345,13 @@ int main(int argc, char** argv)
 	body_interface.AddBody(far_wall->GetID(), EActivation::DontActivate);
 
 	// NEAR END WALL
-	BoxShapeSettings near_wall_shape_settings(Vec3(15.4f, 12.5f, 0.4f));
+	BoxShapeSettings near_wall_shape_settings(Vec3(19.65f, 12.5f, 2.0f));
 	near_wall_shape_settings.SetEmbedded();
 
 	ShapeSettings::ShapeResult near_wall_shape_result = near_wall_shape_settings.Create();
 	ShapeRefC near_wall_shape = near_wall_shape_result.Get();
 
-	BodyCreationSettings near_wall_settings(near_wall_shape, RVec3(0.0_r, 12.5_r, -31.3_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
+	BodyCreationSettings near_wall_settings(near_wall_shape, RVec3(0.0_r, 12.5_r, -39.0_r), Quat::sIdentity(), EMotionType::Static, Layers::BOARDS);
 	near_wall_settings.mFriction = 0.0f;
 	near_wall_settings.mRestitution = 0.2f;
 
@@ -373,8 +361,7 @@ int main(int argc, char** argv)
 
 
 
-	// Now create a dynamic body to bounce on the floor
-	// Note that this uses the shorthand version of creating and adding a body to the world
+	// PUCK
 	BodyCreationSettings puck_settings(new SphereShape(0.152f), RVec3(0.0_r, 0.2_r, 0.0_r), Quat::sIdentity(), EMotionType::Dynamic, Layers::PUCK);
 	puck_settings.mFriction = 0.0f;
 	puck_settings.mRestitution = 0.0f;
@@ -386,9 +373,40 @@ int main(int argc, char** argv)
 
 	BodyID puck_id = body_interface.CreateAndAddBody(puck_settings, EActivation::Activate);
 
+
+	// BLUE GOAL TRIGGER
+	BoxShapeSettings blue_goal_trigger_shape_settings(Vec3(1.515f, 0.745f, 0.25f));
+	blue_goal_trigger_shape_settings.SetEmbedded();
+
+	ShapeSettings::ShapeResult blue_goal_trigger_shape_result = blue_goal_trigger_shape_settings.Create();
+	ShapeRefC blue_goal_trigger_shape = blue_goal_trigger_shape_result.Get();
+
+	BodyCreationSettings blue_goal_trigger_settings(blue_goal_trigger_shape, RVec3(0.0_r, 0.745_r, 34.0_r), Quat::sIdentity(), EMotionType::Static, Layers::GOAL_TRIGGER);
+	blue_goal_trigger_settings.mIsSensor = true;
+
+	BodyID blue_goal_trigger_id = body_interface.CreateAndAddBody(blue_goal_trigger_settings, EActivation::DontActivate);
+
+
+	// RED GOAL TRIGGER
+	BoxShapeSettings red_goal_trigger_shape_settings(Vec3(1.515f, 0.745f, 0.25f));
+	red_goal_trigger_shape_settings.SetEmbedded();
+
+	ShapeSettings::ShapeResult red_goal_trigger_shape_result = red_goal_trigger_shape_settings.Create();
+	ShapeRefC red_goal_trigger_shape = red_goal_trigger_shape_result.Get();
+
+	BodyCreationSettings red_goal_trigger_settings(red_goal_trigger_shape, RVec3(0.0_r, 0.745_r, -34.0_r), Quat::sIdentity(), EMotionType::Static, Layers::GOAL_TRIGGER);
+	red_goal_trigger_settings.mIsSensor = true;
+
+	BodyID red_goal_trigger_id = body_interface.CreateAndAddBody(red_goal_trigger_settings, EActivation::DontActivate);
+
+	// PUCK TRIGGER
+	BodyCreationSettings puck_trigger_settings(new SphereShape(0.15f), RVec3(0.0_r, 0.2_r, 0.0_r), Quat::sIdentity(), EMotionType::Kinematic, Layers::PUCK_TRIGGER);
+	puck_trigger_settings.mIsSensor = true;
+	BodyID puck_trigger_id = body_interface.CreateAndAddBody(puck_trigger_settings, EActivation::Activate);
+
 	// Now you can interact with the dynamic body, in this case we're going to give it a velocity.
 	// (note that if we had used CreateBody then we could have set the velocity straight on the body before adding it to the physics system)
-	body_interface.SetLinearVelocity(puck_id, Vec3(10.0f, 0.0f, 5.0f));
+	body_interface.SetLinearVelocity(puck_id, Vec3(0.0f, 0.0f, 15.0f));
 
 	// We simulate the physics world in discrete time steps. 60 Hz is a good rate to update the physics system.
 	const float cDeltaTime = 1.0f / 50.0f;
@@ -415,15 +433,26 @@ int main(int argc, char** argv)
 		// If you take larger steps than 1 / 60th of a second you need to do multiple collision steps in order to keep the simulation stable. Do 1 collision step per 1 / 60th of a second (round up).
 		const int cCollisionSteps = 1;
 
+
+		// Sync Puck Trigger -> Puck pos
+		body_interface.SetPosition(puck_trigger_id, body_interface.GetPosition(puck_id), EActivation::DontActivate);
+
 		// Step the world
 		physics_system.Update(cDeltaTime, cCollisionSteps, &temp_allocator, &job_system);
 	}
 
 	// Remove the sphere from the physics system. Note that the sphere itself keeps all of its state and can be re-added at any time.
 	body_interface.RemoveBody(puck_id);
-
+	body_interface.RemoveBody(puck_trigger_id);
 	// Destroy the sphere. After this the sphere ID is no longer valid.
 	body_interface.DestroyBody(puck_id);
+	body_interface.DestroyBody(puck_trigger_id);
+
+	body_interface.RemoveBody(blue_goal_trigger_id);
+	body_interface.DestroyBody(blue_goal_trigger_id);
+
+	body_interface.RemoveBody(red_goal_trigger_id);
+	body_interface.DestroyBody(red_goal_trigger_id);
 
 	// Remove and destroy the floor
 	body_interface.RemoveBody(ice->GetID());
