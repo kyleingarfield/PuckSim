@@ -27,7 +27,8 @@ const PlayerParams ATTACKER_PARAMS = {
 	1.5f, 4.5f, 1.3125f, 3.0f, 2.25f,
 	50.0f, 8.0f,
 	12.5f,
-	0.75f, 6.0f
+	0.75f, 6.0f,
+	0.5f, 1.0f, 2.0f, 5.0f // laterality
 };
 
 const PlayerParams GOALIE_PARAMS = {
@@ -39,7 +40,8 @@ const PlayerParams GOALIE_PARAMS = {
 	1.5f, 4.5f, 1.3125f, 3.0f, 2.25f,
 	50.0f, 8.0f,
 	12.5f,
-	0.75f, 6.0f
+	0.75f, 6.0f,
+	0.5f, 1.0f, 2.0f, 5.0f // laterality
 };
 namespace {
 	class IceLayerFilter : public ObjectLayerFilter
@@ -180,7 +182,10 @@ void UpdateMovement(BodyInterface& bi, Player& player, const PlayerInput& input,
 	float speed = Vec3(vel.GetX(), 0, vel.GetZ()).Length();
 
 	Quat rot = bi.GetRotation(player.bodyId);
-	Vec3 forward = rot * Vec3(0, 0, 1);
+
+	// Rotate movement direction by laterality (slerp between left, forward, right)
+	Quat lateralRot = Quat::sRotation(Vec3(0, 1, 0), -player.laterality * 0.5f * JPH_PI);
+	Vec3 forward = (rot * lateralRot) * Vec3(0, 0, 1);
 
 	float accel = 0.0f;
 	float forwardSpeed = forward.Dot(vel);  // positive = moving forward, negative = backward
@@ -248,14 +253,18 @@ void UpdateSkate(BodyInterface& bi, Player& player, float dt)
 {
 	Vec3 vel = bi.GetLinearVelocity(player.bodyId);
 	Quat rot = bi.GetRotation(player.bodyId);
-	Vec3 localVel = rot.Conjugated() * vel;
+
+	// Skate traction operates in the laterality-rotated movement direction
+	Quat lateralRot = Quat::sRotation(Vec3(0, 1, 0), -player.laterality * 0.5f * JPH_PI);
+	Quat movementRot = rot * lateralRot;
+	Vec3 localVel = movementRot.Conjugated() * vel;
 
 	float lateralDrift = -localVel.GetX();
 	float maxCorrection = player.params->skateTraction * dt;
 	float correction = (lateralDrift > maxCorrection) ? maxCorrection :
 		(lateralDrift < -maxCorrection) ? -maxCorrection : lateralDrift;
 
-	Vec3 worldRight = rot * Vec3(1, 0, 0);
+	Vec3 worldRight = movementRot * Vec3(1, 0, 0);
 	vel += worldRight * correction * player.balance;
 	bi.SetLinearVelocity(player.bodyId, vel);
 }
@@ -285,4 +294,37 @@ void UpdateVelocityLean(BodyInterface& bi, Player& player, float dt)
 
 	angVel += (rollTorque + pitchTorque) * dt;
 	bi.SetAngularVelocity(player.bodyId, angVel);
+}
+
+void UpdateLaterality(BodyInterface& bi, Player& player, const PlayerInput& input, float dt)
+{
+	Vec3 vel = bi.GetLinearVelocity(player.bodyId);
+	float speed = Vec3(vel.GetX(), 0, vel.GetZ()).Length();
+
+	float minSpeed = player.params->maxForwardSpeed < player.params->maxBackwardSpeed
+		? player.params->maxForwardSpeed : player.params->maxBackwardSpeed;
+	float normalizedMinSpeed = speed / minSpeed;
+	if (normalizedMinSpeed > 1.0f) normalizedMinSpeed = 1.0f;
+
+	// t = 1 - normalizedMinSpeed: high at low speed, low at high speed
+	float t = 1.0f - normalizedMinSpeed;
+	if (t < 0.0f) t = 0.0f;
+
+	// Lerp speed and magnitude based on t
+	float lateralitySpeed = player.params->minLateralitySpeed
+		+ (player.params->maxLateralitySpeed - player.params->minLateralitySpeed) * t;
+	float lateralityMag = player.params->minLaterality
+		+ (player.params->maxLaterality - player.params->minLaterality) * t;
+
+	// Determine target based on input
+	float target;
+	if (input.lateral < 0.0f)
+		target = -lateralityMag;
+	else if (input.lateral > 0.0f)
+		target = lateralityMag;
+	else
+		target = 0.0f;
+
+	// Lerp toward target: current + (target - current) * speed * dt
+	player.laterality += (target - player.laterality) * lateralitySpeed * dt;
 }

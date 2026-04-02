@@ -51,7 +51,10 @@ struct PlayerParams {
 	float velocityLeanLinearMult;
 	float velocityLeanAngularMult;
 
-
+	float minLaterality;
+	float maxLaterality;
+	float minLateralitySpeed;
+	float maxLateralitySpeed;
 };
 
 extern const PlayerParams ATTACKER_PARAMS;
@@ -87,4 +90,6 @@ void UpdateMovement(BodyInterface& bi, Player& player, const PlayerInput& input,
 void UpdateSkate(BodyInterface& bi, Player& player, float dt);
 
 void UpdateVelocityLean(BodyInterface& bi, Player& player, float dt);
+
+void UpdateLaterality(BodyInterface& bi, Player& player, const PlayerInput& input, float dt);
 

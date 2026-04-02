@@ -119,6 +119,16 @@ void UpdatePuckGroundCheck(BodyInterface& bi, PhysicsSystem& ps, Puck& puck)
 	);
 
 	puck.isGrounded = collector.HadHit();
+
+	// Grounded COM shift: simulate (0, -0.01, 0) local offset via gravitational torque
+	// Torque = comOffset_world × gravityForce = (rot * localOffset) × (0, -m*g, 0)
+	if (puck.isGrounded)
+	{
+		Quat rot = bi.GetRotation(puck.puckId);
+		Vec3 comWorld = rot * Vec3(0.0f, -0.01f, 0.0f);
+		Vec3 gravityForce = Vec3(0.0f, -9.81f * 0.375f, 0.0f);
+		bi.AddTorque(puck.puckId, comWorld.Cross(gravityForce));
+	}
 }
 
 void UpdatePuckTensor(PhysicsSystem& ps, Puck& puck)

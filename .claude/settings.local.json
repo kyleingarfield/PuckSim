@@ -17,7 +17,10 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Read(//c/Users/kyle/Downloads/AssetRipper_win_x64/PuckDumpedAssets/AssetRipper_export_20260330_001745/ExportedProject/Assets/**)",
-      "Bash(done)"
+      "Bash(done)",
+      "Read(//c/Users/kyle/Developer/PuckMods/Sim2GameTest/pucksim_patch/Source/**)",
+      "Read(//c/Users/kyle/Developer/PuckMods/Sim2GameTest/**)",
+      "Bash(python compare.py recordings --all)"
     ]
   }
 }
